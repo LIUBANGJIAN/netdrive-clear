@@ -137,11 +137,11 @@ func (l *Logger) log(level LogLevel, message string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	now := time.Now().UTC()
+	now := time.Now()
 	timeStr := now.Format("2006-01-02 15:04:05")
 
 	// 格式化日志内容
-	logStr := fmt.Sprintf("[%s UTC] [%s] %s\n",
+	logStr := fmt.Sprintf("[%s] [%s] %s\n",
 		timeStr,
 		level,
 		message,
