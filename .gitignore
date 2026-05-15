@@ -1,0 +1,34 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+netdrive-clear
+
+# Test binary
+*.test
+
+# Output of go coverage
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Docker
+.dockerignore

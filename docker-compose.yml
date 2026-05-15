@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  netdrive-clear:
+    image: netdrive-clear:latest
+    container_name: netdrive-clear
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # 挂载数据目录用于持久化配置
+      - ./data:/app/data
+    environment:
+      - TZ=Asia/Shanghai
+      - CONFIG_PATH=/app/data/config.json
+    networks:
+      - default
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  default:
+    driver: bridge

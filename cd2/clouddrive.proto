@@ -1,0 +1,795 @@
+syntax = "proto3";
+package clouddrive;
+option csharp_namespace = "CloudDriveSrv.Protos";
+option go_package = "netdrive-clear/cd2/pb";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/descriptor.proto";
+
+extend google.protobuf.FileOptions {
+  string version = 50001;
+}
+
+service CloudDriveFileSrv {
+  rpc GetSystemInfo(google.protobuf.Empty) returns (CloudDriveSystemInfo) {}
+  rpc GetToken(GetTokenRequest) returns (JWTToken) {}
+  rpc Login(UserLoginRequest) returns (FileOperationResult) {}
+  rpc LoginWithThirdPartyAccount(LoginWithThirdPartyAccountRequest) returns (JWTToken) {}
+  rpc Register(UserRegisterRequest) returns (FileOperationResult) {}
+  rpc SendResetAccountEmail(SendResetAccountEmailRequest) returns (google.protobuf.Empty) {}
+  rpc ResetAccount(ResetAccountRequest) returns (google.protobuf.Empty) {}
+  rpc GetApiTokenInfo(StringValue) returns (TokenInfo) {}
+  rpc LoginWith2FA(LoginWith2FARequest) returns (JWTToken) {}
+
+  rpc SendConfirmEmail(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc ConfirmEmail(ConfirmEmailRequest) returns (google.protobuf.Empty) {}
+  rpc GetAccountStatus(google.protobuf.Empty) returns (AccountStatusResult) {}
+
+  rpc Check2FAStatus(google.protobuf.Empty) returns (TwoFactorAuthStatusResult) {}
+  rpc Setup2FA(Setup2FARequest) returns (TwoFactorAuthSetupResult) {}
+  rpc Enable2FA(TwoFactorAuthCodeRequest) returns (TwoFactorAuthEnableResult) {}
+  rpc Disable2FA(TwoFactorAuthCodeRequest) returns (TwoFactorAuthMessageResult) {}
+  rpc GetRecoveryCodes(TwoFactorAuthCodeRequest) returns (TwoFactorAuthRecoveryCodesResult) {}
+  rpc RegenerateRecoveryCodes(TwoFactorAuthCodeRequest) returns (TwoFactorAuthRecoveryCodesResult) {}
+
+  rpc GetSessions(google.protobuf.Empty) returns (GetSessionsResponse) {}
+  rpc RevokeSession(RevokeSessionRequest) returns (google.protobuf.Empty) {}
+  rpc RevokeOtherSessions(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+
+  rpc GetSubFiles(ListSubFileRequest) returns (stream SubFilesReply) {}
+  rpc GetSearchResults(SearchRequest) returns (stream SubFilesReply) {}
+  rpc FindFileByPath(FindFileByPathRequest) returns (CloudDriveFile) {}
+  rpc CreateFolder(CreateFolderRequest) returns (CreateFolderResult) {}
+  rpc CreateEncryptedFolder(CreateEncryptedFolderRequest) returns (CreateFolderResult) {}
+  rpc UnlockEncryptedFile(UnlockEncryptedFileRequest) returns (FileOperationResult) {}
+  rpc LockEncryptedFile(FileRequest) returns (FileOperationResult) {}
+  rpc RenameFile(RenameFileRequest) returns (FileOperationResult) {}
+  rpc RenameFiles(RenameFilesRequest) returns (FileOperationResult) {}
+  rpc MoveFile(MoveFileRequest) returns (FileOperationResult) {}
+  rpc CopyFile(CopyFileRequest) returns (FileOperationResult) {}
+  rpc DeleteFile(FileRequest) returns (FileOperationResult) {}
+  rpc DeleteFilePermanently(FileRequest) returns (FileOperationResult) {}
+  rpc DeleteFiles(MultiFileRequest) returns (FileOperationResult) {}
+  rpc DeleteFilesPermanently(MultiFileRequest) returns (FileOperationResult) {}
+
+  rpc AddOfflineFiles(AddOfflineFileRequest) returns (FileOperationResult) {}
+  rpc RemoveOfflineFiles(RemoveOfflineFilesRequest) returns (FileOperationResult) {}
+  rpc ListOfflineFilesByPath(FileRequest) returns (OfflineFileListResult) {}
+  rpc ListAllOfflineFiles(OfflineFileListAllRequest) returns (OfflineFileListAllResult) {}
+  rpc GetOfflineQuotaInfo(OfflineQuotaRequest) returns (OfflineQuotaInfo) {}
+  rpc ClearOfflineFiles(ClearOfflineFileRequest) returns (google.protobuf.Empty) {}
+  rpc RestartOfflineTask(RestartOfflineFileRequest) returns (google.protobuf.Empty) {}
+
+  rpc AddSharedLink(AddSharedLinkRequest) returns (google.protobuf.Empty) {}
+  rpc GetFileDetailProperties(FileRequest) returns (FileDetailProperties) {}
+  rpc GetSpaceInfo(FileRequest) returns (SpaceInfo) {}
+  rpc GetCloudMemberships(FileRequest) returns (CloudMemberships) {}
+  rpc GetRuntimeInfo(google.protobuf.Empty) returns (RuntimeInfo) {}
+  rpc GetFileBufferDiskCacheStats(google.protobuf.Empty) returns (FileBufferDiskCacheStats) {}
+  rpc PurgeFileBufferDiskCache(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc SetDiskCacheEvictionStrategy(SetDiskCacheEvictionStrategyRequest) returns (google.protobuf.Empty) {}
+  rpc SetFolderDiskCache(SetFolderDiskCacheRequest) returns (google.protobuf.Empty) {}
+  rpc RemoveFolderDiskCache(FileRequest) returns (google.protobuf.Empty) {}
+  rpc ListDiskCacheFolders(google.protobuf.Empty) returns (ListDiskCacheFoldersReply) {}
+
+  rpc PrefetchFileRanges(PrefetchFileRangesRequest) returns (PrefetchFileRangesReply) {}
+  rpc CancelFilePrefetch(CancelFilePrefetchRequest) returns (google.protobuf.Empty) {}
+  rpc CloseFileReader(FileRequest) returns (google.protobuf.Empty) {}
+  rpc GetActivePrefetchHints(google.protobuf.Empty) returns (GetActivePrefetchHintsReply) {}
+
+  rpc GetRunningInfo(google.protobuf.Empty) returns (RunInfo) {}
+  rpc GetOpenFileHandles(google.protobuf.Empty) returns (OpenFileHandleList) {}
+  rpc Logout(UserLogoutRequest) returns (FileOperationResult) {}
+
+  rpc CanAddMoreMountPoints(google.protobuf.Empty) returns (FileOperationResult) {}
+  rpc GetMountPoints(google.protobuf.Empty) returns (GetMountPointsResult) {}
+  rpc AddMountPoint(MountOption) returns (MountPointResult) {}
+  rpc RemoveMountPoint(MountPointRequest) returns (MountPointResult) {}
+  rpc Mount(MountPointRequest) returns (MountPointResult) {}
+  rpc Unmount(MountPointRequest) returns (MountPointResult) {}
+  rpc UpdateMountPoint(UpdateMountPointRequest) returns (MountPointResult) {}
+  rpc GetAvailableDriveLetters(google.protobuf.Empty) returns (GetAvailableDriveLettersResult) {}
+  rpc HasDriveLetters(google.protobuf.Empty) returns (HasDriveLettersResult) {}
+  rpc CanMountBothLocalAndCloud(google.protobuf.Empty) returns (BoolResult) {}
+  rpc LocalGetSubFiles(LocalGetSubFilesRequest) returns (stream LocalGetSubFilesResult) {}
+  rpc LocalCreateFolder(LocalCreateFolderRequest) returns (LocalCreateFolderResult) {}
+
+  rpc GetAllTasksCount(google.protobuf.Empty) returns (GetAllTasksCountResult) {}
+  rpc GetDownloadFileCount(google.protobuf.Empty) returns (GetDownloadFileCountResult) {}
+  rpc GetDownloadFileList(google.protobuf.Empty) returns (GetDownloadFileListResult) {}
+  rpc GetUploadFileCount(google.protobuf.Empty) returns (GetUploadFileCountResult) {}
+  rpc GetUploadFileList(GetUploadFileListRequest) returns (GetUploadFileListResult) {}
+  rpc CancelAllUploadFiles(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc CancelUploadFiles(MultpleUploadFileKeyRequest) returns (google.protobuf.Empty) {}
+  rpc PauseAllUploadFiles(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc PauseUploadFiles(MultpleUploadFileKeyRequest) returns (google.protobuf.Empty) {}
+  rpc ResumeAllUploadFiles(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc ResumeUploadFiles(MultpleUploadFileKeyRequest) returns (google.protobuf.Empty) {}
+
+  rpc GetCopyTasks(google.protobuf.Empty) returns (GetCopyTaskResult) {}
+  rpc GetMergeTasks(google.protobuf.Empty) returns (GetMergeTasksResult) {}
+  rpc CancelMergeTask(CancelMergeTaskRequest) returns (google.protobuf.Empty) {}
+  rpc CancelCopyTask(CopyTaskRequest) returns (google.protobuf.Empty) {}
+  rpc PauseCopyTask(PauseCopyTaskRequest) returns (google.protobuf.Empty) {}
+  rpc RestartCopyTask(CopyTaskRequest) returns (google.protobuf.Empty) {}
+  rpc RemoveCompletedCopyTasks(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc RemoveAllCopyTasks(google.protobuf.Empty) returns (BatchOperationResult) {}
+  rpc RemoveCopyTasks(CopyTaskBatchRequest) returns (BatchOperationResult) {}
+  rpc PauseAllCopyTasks(PauseAllCopyTasksRequest) returns (BatchOperationResult) {}
+  rpc PauseCopyTasks(PauseCopyTasksRequest) returns (BatchOperationResult) {}
+  rpc ResumeAllCopyTasks(google.protobuf.Empty) returns (BatchOperationResult) {}
+  rpc ResumeCopyTasks(CopyTaskBatchRequest) returns (BatchOperationResult) {}
+
+  rpc CanAddMoreCloudApis(google.protobuf.Empty) returns (FileOperationResult) {}
+  rpc APILogin115Editthiscookie(Login115EditthiscookieRequest) returns (APILoginResult) {}
+  rpc APILogin115QRCode(Login115QrCodeRequest) returns (stream QRCodeScanMessage) {}
+  rpc APILogin115OpenOAuth(Login115OpenOAuthRequest) returns (APILoginResult) {}
+  rpc APILogin115OpenQRCode(Login115OpenQRCodeRequest) returns (stream QRCodeScanMessage) {}
+  rpc APILoginAliyundriveOAuth(LoginAliyundriveOAuthRequest) returns (APILoginResult) {}
+  rpc APILoginAliyundriveRefreshtoken(LoginAliyundriveRefreshtokenRequest) returns (APILoginResult) {}
+  rpc APILoginAliyunDriveQRCode(LoginAliyundriveQRCodeRequest) returns (stream QRCodeScanMessage) {}
+  rpc APILoginBaiduPanOAuth(LoginBaiduPanOAuthRequest) returns (APILoginResult) {}
+  rpc APILoginOneDriveOAuth(LoginOneDriveOAuthRequest) returns (APILoginResult) {}
+  rpc ApiLoginGoogleDriveOAuth(LoginGoogleDriveOAuthRequest) returns (APILoginResult) {}
+  rpc ApiLoginGoogleDriveRefreshToken(LoginGoogleDriveRefreshTokenRequest) returns (APILoginResult) {}
+  rpc ApiLoginXunleiOAuth(LoginXunleiOAuthRequest) returns (APILoginResult) {}
+  rpc ApiLoginXunleiOpenOAuth(LoginXunleiOpenOAuthRequest) returns (APILoginResult) {}
+  rpc ApiLogin123panOAuth(Login123panOAuthRequest) returns (APILoginResult) {}
+  rpc APILogin189QRCode(Login189QRCodeRequest) returns (stream QRCodeScanMessage) {}
+  rpc APILoginWebDav(LoginWebDavRequest) returns (APILoginResult) {}
+  rpc APILoginS3(LoginS3Request) returns (APILoginResult) {}
+  rpc APIAddLocalFolder(AddLocalFolderRequest) returns (APILoginResult) {}
+}
+
+message CloudDriveSystemInfo {
+  bool systemReady = 1;
+  string userName = 2;
+  bool isLogined = 3;
+}
+
+message GetTokenRequest {
+  string userName = 1;
+  string password = 2;
+  string totpCode = 3;
+}
+
+message JWTToken {
+  bool success = 1;
+  string token = 2;
+  string errorMessage = 3;
+  int64 expiration = 4;
+}
+
+message UserLoginRequest {
+  string userName = 1;
+  string password = 2;
+}
+
+message FileOperationResult {
+  bool success = 1;
+  string errorMessage = 2;
+}
+
+message LoginWithThirdPartyAccountRequest {
+  string accountType = 1;
+  string authCode = 2;
+}
+
+message UserRegisterRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message SendResetAccountEmailRequest {
+  string email = 1;
+}
+
+message ResetAccountRequest {
+  string resetCode = 1;
+  string newPassword = 2;
+}
+
+message StringValue {
+  string value = 1;
+}
+
+message TokenInfo {
+  string token = 1;
+  int64 createdAt = 2;
+  int64 expiresAt = 3;
+  bool isValid = 4;
+}
+
+message LoginWith2FARequest {
+  string userName = 1;
+  string password = 2;
+  string totpCode = 3;
+  string recoveryCode = 4;
+}
+
+message ConfirmEmailRequest {
+  string confirmCode = 1;
+}
+
+message AccountStatusResult {
+  string status = 1;
+  bool emailConfirmed = 2;
+}
+
+message TwoFactorAuthStatusResult {
+  bool enabled = 1;
+}
+
+message Setup2FARequest {
+  string password = 1;
+}
+
+message TwoFactorAuthSetupResult {
+  bool success = 1;
+  string secret = 2;
+  string qrCodeData = 3;
+  string errorMessage = 4;
+}
+
+message TwoFactorAuthCodeRequest {
+  string totpCode = 1;
+}
+
+message TwoFactorAuthEnableResult {
+  bool success = 1;
+  repeated string recoveryCodes = 2;
+  string errorMessage = 3;
+}
+
+message TwoFactorAuthMessageResult {
+  bool success = 1;
+  string message = 2;
+}
+
+message TwoFactorAuthRecoveryCodesResult {
+  repeated string recoveryCodes = 1;
+}
+
+message GetSessionsResponse {
+  repeated SessionInfo sessions = 1;
+}
+
+message SessionInfo {
+  string sessionId = 1;
+  string deviceId = 2;
+  string deviceName = 3;
+  string osType = 4;
+  int64 createdAt = 5;
+  int64 lastUsedAt = 6;
+  int64 expiresAt = 7;
+  string lastIpAddress = 8;
+}
+
+message RevokeSessionRequest {
+  string sessionId = 1;
+}
+
+message CloudDriveFile {
+  string name = 1;
+  string fullPath = 2;
+  int64 size = 3;
+  bool isDirectory = 4;
+  string fileType = 5;
+  google.protobuf.Timestamp createTime = 6;
+  google.protobuf.Timestamp modifyTime = 7;
+  string signature = 8;
+  repeated CloudDriveFile subFiles = 9;
+  bool isCloudRoot = 10;
+  bool isCloudDirectory = 11;
+  bool canSearch = 12;
+  bool hasDetailProperties = 13;
+  bool canOfflineDownload = 14;
+}
+
+message ListSubFileRequest {
+  string path = 1;
+  bool forceRefresh = 2;
+}
+
+message SubFilesReply {
+  repeated CloudDriveFile subFiles = 1;
+}
+
+message SearchRequest {
+  string path = 1;
+  string keyword = 2;
+  bool forceRefresh = 3;
+}
+
+message FindFileByPathRequest {
+  string path = 1;
+}
+
+message CreateFolderRequest {
+  string parentPath = 1;
+  string folderName = 2;
+}
+
+message CreateFolderResult {
+  FileOperationResult result = 1;
+  CloudDriveFile folderCreated = 2;
+}
+
+message CreateEncryptedFolderRequest {
+  string parentPath = 1;
+  string folderName = 2;
+  string password = 3;
+}
+
+message UnlockEncryptedFileRequest {
+  string path = 1;
+  string password = 2;
+}
+
+message FileRequest {
+  string path = 1;
+}
+
+message RenameFileRequest {
+  string path = 1;
+  string newName = 2;
+}
+
+message RenameFilesRequest {
+  repeated RenameItem files = 1;
+}
+
+message RenameItem {
+  string path = 1;
+  string newName = 2;
+}
+
+message MoveFileRequest {
+  string sourcePath = 1;
+  string destPath = 2;
+}
+
+message CopyFileRequest {
+  string sourcePath = 1;
+  string destPath = 2;
+}
+
+message MultiFileRequest {
+  repeated string paths = 1;
+}
+
+message AddOfflineFileRequest {
+  string parentPath = 1;
+  repeated OfflineFileItem files = 2;
+}
+
+message OfflineFileItem {
+  string url = 1;
+  string infoHash = 2;
+  string sha1 = 3;
+  string fileName = 4;
+  int64 fileSize = 5;
+}
+
+message RemoveOfflineFilesRequest {
+  repeated string infoHashes = 1;
+}
+
+message OfflineFileListResult {
+  repeated OfflineFileItem files = 1;
+}
+
+message OfflineFileListAllRequest {
+  string cloudId = 1;
+  int32 pageNumber = 2;
+  int32 pageSize = 3;
+}
+
+message OfflineFileListAllResult {
+  repeated OfflineFileItem files = 1;
+  int32 totalCount = 2;
+}
+
+message OfflineQuotaRequest {
+  string cloudId = 1;
+}
+
+message OfflineQuotaInfo {
+  int64 usedQuota = 1;
+  int64 totalQuota = 2;
+}
+
+message ClearOfflineFileRequest {
+  string cloudId = 1;
+  string filterType = 2;
+}
+
+message RestartOfflineFileRequest {
+  string infoHash = 1;
+  string url = 2;
+  string parentId = 3;
+}
+
+message AddSharedLinkRequest {
+  string path = 1;
+  string shareType = 2;
+}
+
+message FileDetailProperties {
+  map<string, string> properties = 1;
+}
+
+message SpaceInfo {
+  int64 totalSpace = 1;
+  int64 usedSpace = 2;
+  int64 freeSpace = 3;
+}
+
+message CloudMemberships {
+  repeated CloudMember members = 1;
+}
+
+message CloudMember {
+  string cloudId = 1;
+  string cloudName = 2;
+  string cloudType = 3;
+  bool isConnected = 4;
+}
+
+message RuntimeInfo {
+  string version = 1;
+  string buildTime = 2;
+}
+
+message FileBufferDiskCacheStats {
+  int64 totalSize = 1;
+  int64 usedSize = 2;
+  int64 hitCount = 3;
+  int64 missCount = 4;
+}
+
+message SetDiskCacheEvictionStrategyRequest {
+  string strategy = 1;
+}
+
+message SetFolderDiskCacheRequest {
+  string path = 1;
+  int64 maxSize = 2;
+}
+
+message ListDiskCacheFoldersReply {
+  repeated DiskCacheFolder folders = 1;
+}
+
+message DiskCacheFolder {
+  string path = 1;
+  int64 maxSize = 2;
+  int64 currentSize = 3;
+}
+
+message PrefetchFileRangesRequest {
+  string path = 1;
+  repeated FileRange ranges = 2;
+  int32 priority = 3;
+}
+
+message FileRange {
+  int64 offset = 1;
+  int64 length = 2;
+}
+
+message PrefetchFileRangesReply {
+  bool success = 1;
+}
+
+message CancelFilePrefetchRequest {
+  string path = 1;
+}
+
+message GetActivePrefetchHintsReply {
+  repeated PrefetchHint hints = 1;
+}
+
+message PrefetchHint {
+  string path = 1;
+  repeated FileRange ranges = 2;
+  int32 priority = 3;
+  int64 createdAt = 4;
+}
+
+message RunInfo {
+  double cpuUsage = 1;
+  int64 memoryUsage = 2;
+  int64 uptime = 3;
+}
+
+message OpenFileHandleList {
+  repeated OpenFileHandle handles = 1;
+}
+
+message OpenFileHandle {
+  string path = 1;
+  string mode = 2;
+  int64 fd = 3;
+}
+
+message UserLogoutRequest {
+  string userName = 1;
+}
+
+message MountOption {
+  string cloudId = 1;
+  string mountPath = 2;
+  string driveLetter = 3;
+  int32 uid = 4;
+  int32 gid = 5;
+  bool enableCache = 6;
+  int64 cacheSize = 7;
+}
+
+message MountPointResult {
+  bool success = 1;
+  string errorMessage = 2;
+}
+
+message GetMountPointsResult {
+  repeated MountPoint mountPoints = 1;
+}
+
+message MountPoint {
+  string cloudId = 1;
+  string cloudName = 2;
+  string mountPath = 3;
+  string driveLetter = 4;
+  bool isMounted = 5;
+}
+
+message MountPointRequest {
+  string cloudId = 1;
+}
+
+message UpdateMountPointRequest {
+  string cloudId = 1;
+  MountOption options = 2;
+}
+
+message GetAvailableDriveLettersResult {
+  repeated string letters = 1;
+}
+
+message HasDriveLettersResult {
+  bool hasDriveLetters = 1;
+}
+
+message BoolResult {
+  bool value = 1;
+}
+
+message LocalGetSubFilesRequest {
+  string path = 1;
+}
+
+message LocalGetSubFilesResult {
+  repeated LocalFile files = 1;
+}
+
+message LocalFile {
+  string name = 1;
+  string fullPath = 2;
+  int64 size = 3;
+  bool isDirectory = 4;
+  google.protobuf.Timestamp modifyTime = 5;
+}
+
+message LocalCreateFolderRequest {
+  string parentPath = 1;
+  string folderName = 2;
+}
+
+message LocalCreateFolderResult {
+  bool success = 1;
+  string errorMessage = 2;
+  string fullPath = 3;
+}
+
+message GetAllTasksCountResult {
+  int32 downloadCount = 1;
+  int32 uploadCount = 2;
+  int32 copyCount = 3;
+  int32 mergeCount = 4;
+}
+
+message GetDownloadFileCountResult {
+  int32 count = 1;
+}
+
+message GetDownloadFileListResult {
+  repeated DownloadFileItem files = 1;
+}
+
+message DownloadFileItem {
+  string localPath = 1;
+  string cloudPath = 2;
+  int64 size = 3;
+  int64 progress = 4;
+  string status = 5;
+}
+
+message GetUploadFileCountResult {
+  int32 count = 1;
+}
+
+message GetUploadFileListRequest {
+  int32 pageNumber = 1;
+  int32 pageSize = 2;
+  string fileNameFilter = 3;
+}
+
+message GetUploadFileListResult {
+  repeated UploadFileItem files = 1;
+  int32 totalCount = 2;
+}
+
+message UploadFileItem {
+  string localPath = 1;
+  string cloudPath = 2;
+  int64 size = 3;
+  int64 progress = 4;
+  string status = 5;
+  string uploadKey = 6;
+}
+
+message MultpleUploadFileKeyRequest {
+  repeated string uploadKeys = 1;
+}
+
+message GetCopyTaskResult {
+  repeated CopyTask tasks = 1;
+}
+
+message CopyTask {
+  string sourcePath = 1;
+  string destPath = 2;
+  int64 progress = 3;
+  string status = 4;
+}
+
+message GetMergeTasksResult {
+  repeated MergeTask tasks = 1;
+}
+
+message MergeTask {
+  string sourcePath = 1;
+  string destPath = 2;
+  int64 progress = 3;
+  string status = 4;
+}
+
+message CancelMergeTaskRequest {
+  string sourcePath = 1;
+  string destPath = 2;
+}
+
+message CopyTaskRequest {
+  string sourcePath = 1;
+  string destPath = 2;
+}
+
+message PauseCopyTaskRequest {
+  string sourcePath = 1;
+  string destPath = 2;
+  bool pause = 3;
+}
+
+message BatchOperationResult {
+  bool success = 1;
+  int32 affectedCount = 2;
+  string errorMessage = 3;
+}
+
+message CopyTaskBatchRequest {
+  repeated string sourcePaths = 1;
+  repeated string destPaths = 2;
+}
+
+message PauseAllCopyTasksRequest {
+  bool pause = 1;
+}
+
+message PauseCopyTasksRequest {
+  repeated string sourcePaths = 1;
+  repeated string destPaths = 2;
+  bool pause = 3;
+}
+
+message APILoginResult {
+  bool success = 1;
+  string errorMessage = 2;
+  string cloudId = 3;
+}
+
+message Login115EditthiscookieRequest {
+  string cookies = 1;
+}
+
+message Login115QrCodeRequest {
+  string qrCodeData = 1;
+}
+
+message QRCodeScanMessage {
+  string message = 1;
+  bool completed = 2;
+}
+
+message Login115OpenOAuthRequest {
+  string authCode = 1;
+}
+
+message Login115OpenQRCodeRequest {
+  string qrCodeData = 1;
+}
+
+message LoginAliyundriveOAuthRequest {
+  string authCode = 1;
+}
+
+message LoginAliyundriveRefreshtokenRequest {
+  string refreshToken = 1;
+}
+
+message LoginAliyundriveQRCodeRequest {
+  string qrCodeData = 1;
+}
+
+message LoginBaiduPanOAuthRequest {
+  string authCode = 1;
+}
+
+message LoginOneDriveOAuthRequest {
+  string authCode = 1;
+}
+
+message LoginGoogleDriveOAuthRequest {
+  string authCode = 1;
+}
+
+message LoginGoogleDriveRefreshTokenRequest {
+  string refreshToken = 1;
+}
+
+message LoginXunleiOAuthRequest {
+  string authCode = 1;
+}
+
+message LoginXunleiOpenOAuthRequest {
+  string authCode = 1;
+}
+
+message Login123panOAuthRequest {
+  string authCode = 1;
+  string clientId = 2;
+  string clientSecret = 3;
+}
+
+message Login189QRCodeRequest {
+  string qrCodeData = 1;
+}
+
+message LoginWebDavRequest {
+  string server = 1;
+  string userName = 2;
+  string password = 3;
+}
+
+message LoginS3Request {
+  string endpoint = 1;
+  string accessKey = 2;
+  string secretKey = 3;
+  string bucket = 4;
+  string region = 5;
+}
+
+message AddLocalFolderRequest {
+  string localPath = 1;
+  string mountPath = 2;
+}
