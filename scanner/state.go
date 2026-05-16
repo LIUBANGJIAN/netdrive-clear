@@ -20,9 +20,10 @@ import (
 
 // ScanState 扫描状态管理器
 type ScanState struct {
-	mu         sync.RWMutex          // 读写锁
-	PathStates map[string]*PathState `json:"path_states"` // 路径状态映射
-	stateFile  string                // 状态保存文件路径
+	mu                    sync.RWMutex                 // 读写锁
+	PathStates            map[string]*PathState        `json:"path_states"`             // 路径状态映射
+	SubFolderFingerprints map[string]map[string]string `json:"sub_folder_fingerprints"` // 子文件夹指纹映射表: 监控路径 -> 子文件夹路径 -> 指纹
+	stateFile             string                       // 状态保存文件路径
 }
 
 // PathState 路径状态
@@ -39,8 +40,9 @@ type PathState struct {
 // 返回扫描状态管理器实例
 func NewScanState(stateFile string) *ScanState {
 	ss := &ScanState{
-		PathStates: make(map[string]*PathState),
-		stateFile:  stateFile,
+		PathStates:            make(map[string]*PathState),
+		SubFolderFingerprints: make(map[string]map[string]string),
+		stateFile:             stateFile,
 	}
 	// 加载已保存的状态
 	ss.Load()
@@ -217,4 +219,65 @@ func (ss *ScanState) UpdateDirCache(dirPath string) {
 
 	// 保存到文件
 	ss.Save()
+}
+
+// GetChangedSubFolders 获取监控目录下所有指纹发生变化的子文件夹
+// monitorPath: 监控路径（如 /BON_115网盘/BM）
+// currentFingerprints: 当前各子文件夹的指纹
+// 返回发生变化且需要扫描的子文件夹列表
+func (ss *ScanState) GetChangedSubFolders(monitorPath string, currentFingerprints map[string]string) []string {
+	ss.mu.RLock()
+	defer ss.mu.RUnlock()
+
+	var changed []string
+
+	// 获取该监控路径的已有指纹
+	storedFingerprints, exists := ss.SubFolderFingerprints[monitorPath]
+	if !exists {
+		// 首次扫描，所有子文件夹都需要扫描
+		for path := range currentFingerprints {
+			changed = append(changed, path)
+		}
+		return changed
+	}
+
+	// 比较每个子文件夹的指纹
+	for subPath, currentFP := range currentFingerprints {
+		storedFP, wasTracked := storedFingerprints[subPath]
+		if !wasTracked || storedFP != currentFP {
+			// 新增的子文件夹或指纹发生变化
+			changed = append(changed, subPath)
+		}
+	}
+
+	return changed
+}
+
+// UpdateSubFolderFingerprints 更新监控路径下所有子文件夹的指纹
+// monitorPath: 监控路径
+// fingerprints: 子文件夹指纹映射表
+func (ss *ScanState) UpdateSubFolderFingerprints(monitorPath string, fingerprints map[string]string) {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+
+	if ss.SubFolderFingerprints == nil {
+		ss.SubFolderFingerprints = make(map[string]map[string]string)
+	}
+
+	ss.SubFolderFingerprints[monitorPath] = fingerprints
+	ss.Save()
+}
+
+// GetSubFolderFingerprint 获取指定子文件夹的指纹
+// monitorPath: 监控路径
+// subFolderPath: 子文件夹路径
+// 返回指纹字符串，如果不存在返回空字符串
+func (ss *ScanState) GetSubFolderFingerprint(monitorPath, subFolderPath string) string {
+	ss.mu.RLock()
+	defer ss.mu.RUnlock()
+
+	if fingerprints, exists := ss.SubFolderFingerprints[monitorPath]; exists {
+		return fingerprints[subFolderPath]
+	}
+	return ""
 }

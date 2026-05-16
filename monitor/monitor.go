@@ -129,7 +129,11 @@ func (m *Monitor) run() {
 		if m.onScanStart != nil {
 			m.onScanStart("[监控] 启动监控，首次扫描...")
 		}
-		m.monitorScan("[监控-首次]")
+		// 首次扫描：获取所有子文件夹指纹并扫描
+		changedFolders := m.quickCheck()
+		if len(changedFolders) > 0 {
+			m.monitorScan("[监控-首次]", changedFolders)
+		}
 	}
 
 	// 持续监控循环
@@ -153,39 +157,46 @@ func (m *Monitor) run() {
 			return
 		case <-ticker.C:
 			ticker.Stop()
-			// 定时检测：检查指纹变化，变化则立即执行完整扫描
-			if m.quickCheck() {
+			// 定时检测：检查子文件夹指纹变化
+			changedFolders := m.quickCheck()
+			if len(changedFolders) > 0 {
 				if m.onScanStart != nil {
-					m.onScanStart("[监控] 检测到目录变化，执行扫描...")
+					m.onScanStart(fmt.Sprintf("[监控] 检测到 %d 个子文件夹变化", len(changedFolders)))
 				}
-				m.monitorScan("[监控-变化]")
+				m.monitorScan("[监控-变化]", changedFolders)
 			}
 		}
 	}
 }
 
-// quickCheck 快速检查指纹是否有变化
-// 返回 true 表示有变化，需要执行完整扫描
-func (m *Monitor) quickCheck() bool {
+// quickCheck 快速检查子文件夹指纹是否有变化
+// 返回发生变化的子文件夹列表，空列表表示无变化
+func (m *Monitor) quickCheck() map[string][]string {
+	result := make(map[string][]string)
+
 	for _, wp := range m.watchPaths {
 		if !wp.Enabled {
 			continue
 		}
 
-		fingerprint, err := m.manager.GetFingerprint(m.ctx, wp.Path)
+		// 获取所有子文件夹的指纹
+		fingerprints, err := m.manager.GetSubFolderFingerprints(m.ctx, wp.Path)
 		if err != nil {
 			continue
 		}
 
-		if m.scanner.NeedsScan(wp.Path, fingerprint) {
-			return true
+		// 找出发生变化的子文件夹
+		changed := m.scanner.GetChangedSubFolders(wp.Path, fingerprints)
+		if len(changed) > 0 {
+			result[wp.Path] = changed
 		}
 	}
-	return false
+
+	return result
 }
 
-// monitorScan 执行监控扫描（带指纹缓存优化）
-func (m *Monitor) monitorScan(source string) {
+// monitorScan 执行监控扫描（细粒度：只扫描变化的子文件夹）
+func (m *Monitor) monitorScan(source string, changedFolders map[string][]string) {
 	// 检查 WebDAV 服务器是否可用
 	if m.manager == nil {
 		if m.onError != nil {
@@ -208,52 +219,44 @@ func (m *Monitor) monitorScan(source string) {
 			continue
 		}
 
-		// 触发扫描开始回调
-		if m.onScanStart != nil {
-			m.onScanStart(fmt.Sprintf("%s 扫描路径: %s", source, wp.Path))
+		changed, hasChanged := changedFolders[wp.Path]
+		if !hasChanged || len(changed) == 0 {
+			continue
 		}
 
-		// 获取目录指纹（递归收集所有子目录的修改时间）
-		fingerprint, err := m.manager.GetFingerprint(m.ctx, wp.Path)
+		// 获取当前所有子文件夹的指纹
+		fingerprints, err := m.manager.GetSubFolderFingerprints(m.ctx, wp.Path)
 		if err != nil {
 			if m.onError != nil {
-				m.onError(fmt.Errorf("获取目录指纹失败: %v", err))
+				m.onError(fmt.Errorf("获取子文件夹指纹失败: %v", err))
 			}
 			continue
 		}
 
-		// 如果指纹没变化，跳过扫描（增量扫描优化，避免网盘风控）
-		if !m.scanner.NeedsScan(wp.Path, fingerprint) {
+		// 只扫描发生变化的子文件夹
+		for _, subFolder := range changed {
+			// 触发扫描开始回调
+			if m.onScanStart != nil {
+				m.onScanStart(fmt.Sprintf("%s 扫描子文件夹: %s", source, subFolder))
+			}
+
+			// 执行清理（只扫描该子文件夹）
+			result, err := m.cleaner.CleanPath(m.ctx, subFolder)
+			if err != nil {
+				if m.onError != nil {
+					m.onError(err)
+				}
+				continue
+			}
+
+			// 触发扫描完成回调
 			if m.onScanComplete != nil {
-				m.onScanComplete(wp.Path, &cleaner.CleanResult{
-					ScannedFiles: 0,
-					ScannedDirs:  0,
-					DeletedCount: 0,
-					DeletedSize:  0,
-					Duration:     0,
-					Skipped:      true,
-					Message:      "目录无变化，跳过扫描",
-				})
+				m.onScanComplete(subFolder, result)
 			}
-			continue
 		}
 
-		// 执行清理
-		result, err := m.cleaner.CleanPath(m.ctx, wp.Path)
-		if err != nil {
-			if m.onError != nil {
-				m.onError(err)
-			}
-			continue
-		}
-
-		// 更新指纹
-		m.scanner.UpdateFingerprint(wp.Path, fingerprint)
-
-		// 触发扫描完成回调
-		if m.onScanComplete != nil {
-			m.onScanComplete(wp.Path, result)
-		}
+		// 更新该监控路径下所有子文件夹的指纹
+		m.scanner.UpdateSubFolderFingerprints(wp.Path, fingerprints)
 	}
 }
 

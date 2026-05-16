@@ -146,6 +146,75 @@ func (m *Manager) GetFingerprint(ctx context.Context, path string) (string, erro
 	return fmt.Sprintf("%d_%d", fileCount, maxModTime), nil
 }
 
+// SubFolderFingerprint 子文件夹指纹信息
+type SubFolderFingerprint struct {
+	Path        string // 子文件夹路径
+	FolderTime  int64  // 文件夹本身的修改时间
+	FileCount   int64  // 文件夹内文件总数
+	MaxFileTime int64  // 文件夹内最新文件的修改时间
+	Fingerprint string // 指纹字符串
+}
+
+// GetSubFolderFingerprints 获取监控目录下所有直接子文件夹的指纹
+// 用于细粒度监控：每个子文件夹独立监控，只有变化的文件夹才扫描
+// path: 监控目录路径（如 /BON_115网盘/BM）
+// 返回子文件夹指纹映射表
+func (m *Manager) GetSubFolderFingerprints(ctx context.Context, path string) (map[string]string, error) {
+	client := m.GetClient()
+	if client == nil {
+		return nil, fmt.Errorf("没有可用的 WebDAV 服务器")
+	}
+
+	result := make(map[string]string)
+
+	files, err := client.ListFiles(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, f := range files {
+		if f.IsDir {
+			// 只处理直接子文件夹，递归收集其文件信息
+			var fileCount int64
+			var maxFileTime int64
+
+			// 递归收集该子文件夹内所有文件的统计信息
+			m.collectFolderFileStats(ctx, client, f.FullPath, &fileCount, &maxFileTime)
+
+			// 指纹 = 文件夹修改时间_文件数_文件夹内最新文件时间
+			fingerprint := fmt.Sprintf("%d_%d_%d", f.ModifyTime.Unix(), fileCount, maxFileTime)
+			result[f.FullPath] = fingerprint
+		}
+	}
+
+	return result, nil
+}
+
+// collectFolderFileStats 递归收集文件夹内所有文件的统计信息
+func (m *Manager) collectFolderFileStats(ctx context.Context, client *Client, path string, fileCount *int64, maxFileTime *int64) error {
+	files, err := client.ListFiles(ctx, path)
+	if err != nil {
+		return err
+	}
+
+	for _, f := range files {
+		if f.IsDir {
+			// 递归处理子目录
+			if err := m.collectFolderFileStats(ctx, client, f.FullPath, fileCount, maxFileTime); err != nil {
+				continue
+			}
+		} else {
+			*fileCount++
+			mt := f.ModifyTime.Unix()
+			if mt > *maxFileTime {
+				*maxFileTime = mt
+			}
+		}
+	}
+
+	return nil
+}
+
 // collectFingerprintData 递归收集指纹数据（文件数和最新修改时间）
 func (m *Manager) collectFingerprintData(ctx context.Context, client *Client, path string, fileCount *int64, maxModTime *int64) error {
 	files, err := client.ListFiles(ctx, path)
