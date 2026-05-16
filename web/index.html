@@ -920,6 +920,8 @@
             log('info', '系统启动中...');
             await loadConfig();
             await loadLogs();
+            await loadServers();
+            await loadPaths();
             await refreshStatus();
 
             setInterval(refreshStatus, 10000);
