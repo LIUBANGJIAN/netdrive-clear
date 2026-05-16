@@ -118,6 +118,7 @@ func (s *Server) setupRoutes() {
 
 	s.engine.GET("/", s.handleIndex)
 	s.engine.Static("/static", "./web/static")
+	s.engine.Static("/src", "./web/vue-app/src")
 }
 
 // Start 启动 Web 服务器
@@ -785,7 +786,7 @@ func (s *Server) handleClearLogs(c *gin.Context) {
 func (s *Server) handleIndex(c *gin.Context) {
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Header("Cache-Control", "no-cache")
-	c.File("./web/index.html")
+	c.File("./web/vue-app/index.html")
 }
 
 // cleanPaths 清理多个路径
