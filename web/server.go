@@ -248,7 +248,7 @@ func (s *Server) handleStatus(c *gin.Context) {
 	s.mu.RUnlock()
 
 	c.JSON(http.StatusOK, gin.H{
-		"version":            "v2.0.22",
+		"version":            "v2.0.23",
 		"webdav_connected":   testErr == nil,
 		"current_server":     s.webdavManager.GetCurrent(),
 		"server_count":       len(s.webdavManager.ListServers()),
