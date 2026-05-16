@@ -386,18 +386,11 @@
             try {
                 const data = await api('/api/webdav/servers');
                 const container = document.getElementById('server-list');
-                const count = document.getElementById('server-count');
-                const enabledCount = document.getElementById('enabled-count');
 
                 if (!data.servers || data.servers.length === 0) {
                     container.innerHTML = '<div class="empty-state">暂无 WebDAV 服务器，请点击上方按钮添加</div>';
-                    count.textContent = '0';
-                    enabledCount.textContent = '0';
                     return;
                 }
-
-                count.textContent = data.servers.length;
-                enabledCount.textContent = data.servers.filter(s => s.enabled).length;
 
                 let html = '';
                 for (let i = 0; i < data.servers.length; i++) {
