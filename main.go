@@ -21,7 +21,7 @@
  *   MIN_VIDEO_SIZE  - 最小视频大小（MB）
  *
  * 作者: NetDrive Clear Team
- * 版本: v2.0.29
+ * 版本: v2.0.30
  */
 
 package main
@@ -194,7 +194,7 @@ func initWebDAV(cfg *config.Config) (*webdav.Manager, error) {
 func printBanner() {
 	fmt.Println(`
 ╔══════════════════════════════════════════════════════════════════╗
-║                    NetDrive Clear v2.0.29                       ║
+║                    NetDrive Clear v2.0.30                       ║
 ║              CloudDrive2 云盘自动清理工具                        ║
 ║                                                                ║
 ║  功能: 自动删除广告文件、小视频文件、增量扫描、实时监控            ║

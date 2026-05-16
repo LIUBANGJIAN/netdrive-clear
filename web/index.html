@@ -190,8 +190,8 @@
                 </div>
                 <div class="form-group">
                     <label>监控间隔 (秒)</label>
-                    <input type="number" id="monitor-interval" value="300" min="60" step="30">
-                    <small style="color: #666; font-size: 12px;">⚠️ 建议 ≥60 秒，避免触发网盘 API 风控（云盘版本默认 5 分钟）</small>
+                    <input type="number" id="monitor-interval" value="30" min="10" step="10">
+                    <small style="color: #666; font-size: 12px;">建议 ≥10 秒，默认 30 秒检测一次</small>
                 </div>
                 <button class="btn btn-primary" onclick="saveCleanerConfig()">💾 保存设置</button>
             </div>
@@ -640,7 +640,7 @@
                 document.getElementById('ad-extensions').value = cfg.cleaner?.ad_extensions?.join(', ') || '.txt, .html, .url, .lnk';
                 document.getElementById('video-extensions').value = cfg.cleaner?.video_extensions?.join(', ') || '.mp4, .mkv, .avi, .mov';
                 document.getElementById('min-video-size').value = cfg.cleaner?.min_video_size_mb || 10;
-                document.getElementById('monitor-interval').value = cfg.monitor?.interval_seconds || 300;
+                document.getElementById('monitor-interval').value = cfg.monitor?.interval_seconds || 30;
             } catch (e) {
                 log('warning', `加载配置失败：${e.message}`);
             }
@@ -650,7 +650,7 @@
             const adExt = document.getElementById('ad-extensions').value.split(',').map(e => e.trim()).filter(e => e);
             const videoExt = document.getElementById('video-extensions').value.split(',').map(e => e.trim()).filter(e => e);
             const minSize = parseInt(document.getElementById('min-video-size').value) || 10;
-            const interval = parseInt(document.getElementById('monitor-interval').value) || 300;
+            const interval = parseInt(document.getElementById('monitor-interval').value) || 30;
 
             try {
                 const cfg = await api('/api/config');

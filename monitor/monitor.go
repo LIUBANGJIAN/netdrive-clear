@@ -121,42 +121,71 @@ func (m *Monitor) Stop() {
 func (m *Monitor) run() {
 	defer m.wg.Done()
 
-	// 立即执行一次扫描
-	m.scanAll()
+	isFirstScan := true
 
-	// 定时扫描循环
+	// 监控模式：首次扫描立即执行，后续按配置的间隔持续检测
+	if isFirstScan {
+		isFirstScan = false
+		if m.onScanStart != nil {
+			m.onScanStart("[监控] 启动监控，首次扫描...")
+		}
+		m.monitorScan("[监控-首次]")
+	}
+
+	// 持续监控循环
 	for {
-		// 每次循环都重新读取间隔配置，支持运行时更新
 		m.mu.RLock()
 		interval := m.config.IntervalSeconds
 		m.mu.RUnlock()
 
-		// 创建新的定时器
 		ticker := time.NewTicker(time.Duration(interval) * time.Second)
 
 		if m.onScanStart != nil {
-			m.onScanStart(fmt.Sprintf("等待下次扫描 (间隔: %d秒)", interval))
+			m.onScanStart(fmt.Sprintf("[监控] 持续监控中 (检测间隔: %d秒)", interval))
 		}
 
 		select {
 		case <-m.ctx.Done():
 			ticker.Stop()
 			if m.onError != nil {
-				m.onError(fmt.Errorf("监控已停止"))
+				m.onError(fmt.Errorf("[监控] 监控已停止"))
 			}
 			return
 		case <-ticker.C:
 			ticker.Stop()
-			if m.onScanStart != nil {
-				m.onScanStart("定时触发扫描")
+			// 定时检测：检查指纹变化，变化则立即执行完整扫描
+			if m.quickCheck() {
+				if m.onScanStart != nil {
+					m.onScanStart("[监控] 检测到目录变化，执行扫描...")
+				}
+				m.monitorScan("[监控-变化]")
 			}
-			m.scanAll()
 		}
 	}
 }
 
-// scanAll 扫描所有监控路径
-func (m *Monitor) scanAll() {
+// quickCheck 快速检查指纹是否有变化
+// 返回 true 表示有变化，需要执行完整扫描
+func (m *Monitor) quickCheck() bool {
+	for _, wp := range m.watchPaths {
+		if !wp.Enabled {
+			continue
+		}
+
+		fingerprint, err := m.manager.GetFingerprint(m.ctx, wp.Path)
+		if err != nil {
+			continue
+		}
+
+		if m.scanner.NeedsScan(wp.Path, fingerprint) {
+			return true
+		}
+	}
+	return false
+}
+
+// monitorScan 执行监控扫描（带指纹缓存优化）
+func (m *Monitor) monitorScan(source string) {
 	// 检查 WebDAV 服务器是否可用
 	if m.manager == nil {
 		if m.onError != nil {
@@ -181,10 +210,35 @@ func (m *Monitor) scanAll() {
 
 		// 触发扫描开始回调
 		if m.onScanStart != nil {
-			m.onScanStart(wp.Path)
+			m.onScanStart(fmt.Sprintf("%s 扫描路径: %s", source, wp.Path))
 		}
 
-		// 执行清理（强制每次轮询都扫描，不使用指纹缓存）
+		// 获取目录指纹（递归收集所有子目录的修改时间）
+		fingerprint, err := m.manager.GetFingerprint(m.ctx, wp.Path)
+		if err != nil {
+			if m.onError != nil {
+				m.onError(fmt.Errorf("获取目录指纹失败: %v", err))
+			}
+			continue
+		}
+
+		// 如果指纹没变化，跳过扫描（增量扫描优化，避免网盘风控）
+		if !m.scanner.NeedsScan(wp.Path, fingerprint) {
+			if m.onScanComplete != nil {
+				m.onScanComplete(wp.Path, &cleaner.CleanResult{
+					ScannedFiles: 0,
+					ScannedDirs:  0,
+					DeletedCount: 0,
+					DeletedSize:  0,
+					Duration:     0,
+					Skipped:      true,
+					Message:      "目录无变化，跳过扫描",
+				})
+			}
+			continue
+		}
+
+		// 执行清理
 		result, err := m.cleaner.CleanPath(m.ctx, wp.Path)
 		if err != nil {
 			if m.onError != nil {
@@ -192,6 +246,9 @@ func (m *Monitor) scanAll() {
 			}
 			continue
 		}
+
+		// 更新指纹
+		m.scanner.UpdateFingerprint(wp.Path, fingerprint)
 
 		// 触发扫描完成回调
 		if m.onScanComplete != nil {
