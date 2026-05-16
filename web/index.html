@@ -351,46 +351,39 @@
                 log('debug', `状态响应: ${JSON.stringify(status)}`);
 
                 if (status.version) {
-                    document.getElementById('version').textContent = status.version;
+                    const versionEl = document.getElementById('version');
+                    if (versionEl) versionEl.textContent = status.version;
                 }
-
-                const webdavStatus = document.getElementById('webdav-status');
-                if (status.webdav_connected) {
-                    webdavStatus.textContent = '✅ 已连接';
-                    webdavStatus.className = 'value green';
-                } else {
-                    webdavStatus.textContent = '❌ 未连接';
-                    webdavStatus.className = 'value red';
-                }
-
-                document.getElementById('server-count').textContent = status.server_count || 0;
 
                 const monitorStatus = document.getElementById('monitor-status');
                 log('debug', `监控运行状态: ${status.monitor_running}`);
-                if (status.monitor_running) {
-                    monitorStatus.textContent = '🟢 运行中';
-                    monitorStatus.className = 'value green';
-                } else {
-                    monitorStatus.textContent = '⚪ 已停止';
-                    monitorStatus.className = 'value';
+                if (monitorStatus) {
+                    if (status.monitor_running) {
+                        monitorStatus.textContent = '🟢 运行中';
+                        monitorStatus.className = 'value green';
+                    } else {
+                        monitorStatus.textContent = '⚪ 已停止';
+                        monitorStatus.className = 'value';
+                    }
                 }
 
                 log('debug', `累计清理数: ${status.total_cleaned}`);
-                if (status.total_cleaned !== undefined) {
-                    const totalCleaned = status.total_cleaned || 0;
-                    const totalSize = status.total_cleaned_size || 0;
-                    const sizeMB = (totalSize / 1024 / 1024).toFixed(2);
-                    document.getElementById('last-cleaned').textContent = `累计清理 ${totalCleaned} 个文件 (${sizeMB} MB)`;
-                } else {
-                    document.getElementById('last-cleaned').textContent = '-';
+                const lastCleanedEl = document.getElementById('last-cleaned');
+                if (lastCleanedEl) {
+                    if (status.total_cleaned !== undefined) {
+                        const totalCleaned = status.total_cleaned || 0;
+                        const totalSize = status.total_cleaned_size || 0;
+                        const sizeMB = (totalSize / 1024 / 1024).toFixed(2);
+                        lastCleanedEl.textContent = `累计清理 ${totalCleaned} 个文件 (${sizeMB} MB)`;
+                    } else {
+                        lastCleanedEl.textContent = '-';
+                    }
                 }
 
                 loadPaths();
                 loadServers();
             } catch (e) {
                 log('error', `获取状态失败：${e.message}`);
-                document.getElementById('webdav-status').textContent = '❌ 连接错误';
-                document.getElementById('webdav-status').className = 'value red';
             }
         }
 
