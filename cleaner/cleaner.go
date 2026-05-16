@@ -166,12 +166,17 @@ func (c *Cleaner) cleanPathOnServer(ctx context.Context, serverName, path string
 		if file.IsDir {
 			// 检查子目录指纹是否变化
 			if fingerprints != nil {
+				// 使用与 manager.go 相同的指纹格式：修改时间_文件数_最新文件时间
 				currentFingerprint := fmt.Sprintf("%d", file.ModifyTime.Unix())
-				if cachedFingerprint, ok := fingerprints[file.FullPath]; ok && cachedFingerprint == currentFingerprint {
-					if c.logger != nil {
-						c.logger.Info("跳过未变化的子目录: %s", file.FullPath)
+				if cachedFingerprint, ok := fingerprints[file.FullPath]; ok {
+					// 比较修改时间部分（只取指纹的第一部分）
+					cachedTime := strings.Split(cachedFingerprint, "_")[0]
+					if cachedTime == currentFingerprint {
+						if c.logger != nil {
+							c.logger.Info("跳过未变化的子目录: %s", file.FullPath)
+						}
+						continue
 					}
-					continue
 				}
 			}
 
