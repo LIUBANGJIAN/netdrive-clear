@@ -266,6 +266,28 @@ func (m *Manager) collectFolderFileStats(ctx context.Context, client *Client, pa
 	return nil
 }
 
+// GetFolderFingerprints 获取指定服务器上目录下所有层级文件夹的指纹
+// 用于增量扫描时跳过未变化的子目录
+// serverName: 服务器名称
+// path: 目录路径
+// 返回文件夹指纹映射表
+func (m *Manager) GetFolderFingerprints(ctx context.Context, serverName, path string) (map[string]string, error) {
+	client := m.GetClientByName(serverName)
+	if client == nil {
+		return nil, fmt.Errorf("服务器不存在: %s", serverName)
+	}
+
+	result := make(map[string]string)
+
+	// 递归遍历所有层级
+	err := m.collectAllFoldersFingerprints(ctx, client, path, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 // collectFingerprintData 递归收集指纹数据（文件数和最新修改时间）
 func (m *Manager) collectFingerprintData(ctx context.Context, client *Client, path string, fileCount *int64, maxModTime *int64) error {
 	files, err := client.ListFiles(ctx, path)

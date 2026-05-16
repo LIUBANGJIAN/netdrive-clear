@@ -33,15 +33,15 @@ type Cleaner struct {
 
 // CleanResult 清理结果结构
 type CleanResult struct {
-	DeletedCount int64     // 删除文件数量
-	DeletedSize  int64     // 删除文件总大小（字节）
-	DeletedFiles []string  // 删除的文件列表
-	Errors       []string  // 错误信息列表
+	DeletedCount int64    // 删除文件数量
+	DeletedSize  int64    // 删除文件总大小（字节）
+	DeletedFiles []string // 删除的文件列表
+	Errors       []string // 错误信息列表
 	ScannedFiles int64    // 扫描文件数量
 	ScannedDirs  int64    // 扫描目录数量
-	Duration     float64   // 扫描耗时（秒）
-	Skipped      bool      // 是否跳过
-	Message      string    // 附加消息
+	Duration     float64  // 扫描耗时（秒）
+	Skipped      bool     // 是否跳过
+	Message      string   // 附加消息
 }
 
 // NewCleaner 创建新的清理器
@@ -96,13 +96,24 @@ func (c *Cleaner) CleanPath(ctx context.Context, path string) (*CleanResult, err
 		}
 	}
 
+	// 获取初始指纹（用于跳过未变化的子目录）
+	initialFingerprints := make(map[string]string)
+	for _, serverName := range servers {
+		fingerprints, err := c.manager.GetFolderFingerprints(ctx, serverName, path)
+		if err == nil {
+			for k, v := range fingerprints {
+				initialFingerprints[k] = v
+			}
+		}
+	}
+
 	// 遍历所有服务器进行清理
 	for _, serverName := range servers {
 		if c.logger != nil {
 			c.logger.Info("开始清理服务器 [%s] ...", serverName)
 		}
 
-		serverResult, err := c.cleanPathOnServer(ctx, serverName, path)
+		serverResult, err := c.cleanPathOnServer(ctx, serverName, path, initialFingerprints)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("服务器 %s: %v", serverName, err))
 			if c.logger != nil {
@@ -137,7 +148,7 @@ func (c *Cleaner) CleanPath(ctx context.Context, path string) (*CleanResult, err
 }
 
 // cleanPathOnServer 在指定服务器上清理路径
-func (c *Cleaner) cleanPathOnServer(ctx context.Context, serverName, path string) (*CleanResult, error) {
+func (c *Cleaner) cleanPathOnServer(ctx context.Context, serverName, path string, fingerprints map[string]string) (*CleanResult, error) {
 	result := &CleanResult{}
 
 	// 获取目录下的文件列表
@@ -153,12 +164,23 @@ func (c *Cleaner) cleanPathOnServer(ctx context.Context, serverName, path string
 	// 遍历文件，递归处理目录
 	for _, file := range files {
 		if file.IsDir {
+			// 检查子目录指纹是否变化
+			if fingerprints != nil {
+				currentFingerprint := fmt.Sprintf("%d", file.ModifyTime.Unix())
+				if cachedFingerprint, ok := fingerprints[file.FullPath]; ok && cachedFingerprint == currentFingerprint {
+					if c.logger != nil {
+						c.logger.Info("跳过未变化的子目录: %s", file.FullPath)
+					}
+					continue
+				}
+			}
+
 			// 递归清理子目录（在同一服务器上）
 			if c.logger != nil {
 				c.logger.Info("进入子目录: %s", file.FullPath)
 			}
 
-			subResult, err := c.cleanPathOnServer(ctx, serverName, file.FullPath)
+			subResult, err := c.cleanPathOnServer(ctx, serverName, file.FullPath, fingerprints)
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", file.FullPath, err))
 				if c.logger != nil {
