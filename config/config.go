@@ -111,11 +111,11 @@ func DefaultConfig() *Config {
 		},
 		Scan: ScanConfig{
 			StateFile:           "data/scan_state.json",
-			PollIntervalSeconds: 30,
+			PollIntervalSeconds: 300,
 		},
 		Monitor: MonitorConfig{
 			Enabled:         false,
-			IntervalSeconds: 30,
+			IntervalSeconds: 300,
 		},
 		Web: WebConfig{
 			Host: "0.0.0.0",

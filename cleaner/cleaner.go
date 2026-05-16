@@ -33,10 +33,15 @@ type Cleaner struct {
 
 // CleanResult 清理结果结构
 type CleanResult struct {
-	DeletedCount int64    // 删除文件数量
-	DeletedSize  int64    // 删除文件总大小（字节）
-	DeletedFiles []string // 删除的文件列表
-	Errors       []string // 错误信息列表
+	DeletedCount int64     // 删除文件数量
+	DeletedSize  int64     // 删除文件总大小（字节）
+	DeletedFiles []string  // 删除的文件列表
+	Errors       []string  // 错误信息列表
+	ScannedFiles int64    // 扫描文件数量
+	ScannedDirs  int64    // 扫描目录数量
+	Duration     float64   // 扫描耗时（秒）
+	Skipped      bool      // 是否跳过
+	Message      string    // 附加消息
 }
 
 // NewCleaner 创建新的清理器

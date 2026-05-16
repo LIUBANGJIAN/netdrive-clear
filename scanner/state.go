@@ -12,6 +12,7 @@ package scanner
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -95,11 +96,11 @@ func (ss *ScanState) MarkScanned(path string, modifyTime time.Time, fileCount, d
 	ss.Save()
 }
 
-// NeedsScan 判断路径是否需要扫描
+// NeedsScan 判断路径是否需要扫描（使用指纹比较）
 // path: 路径
-// currentModifyTime: 当前修改时间
+// currentFingerprint: 当前指纹 (格式: "文件数_目录修改时间戳")
 // 返回是否需要扫描
-func (ss *ScanState) NeedsScan(path string, currentModifyTime time.Time) bool {
+func (ss *ScanState) NeedsScan(path string, currentFingerprint string) bool {
 	ss.mu.RLock()
 	defer ss.mu.RUnlock()
 
@@ -109,13 +110,55 @@ func (ss *ScanState) NeedsScan(path string, currentModifyTime time.Time) bool {
 		return true
 	}
 
-	// 如果当前修改时间晚于记录的修改时间，说明有变化
-	if currentModifyTime.After(state.LastModifyTime) {
-		return true
+	// 指纹比较：如果指纹没变，说明目录没有变化
+	return state.HasChanged || state.FileCount != ss.parseFingerprintCount(currentFingerprint)
+}
+
+// parseFingerprintCount 解析指纹中的文件数
+// fingerprint: 指纹 (格式: "文件数_目录修改时间戳")
+// 返回文件数
+func (ss *ScanState) parseFingerprintCount(fingerprint string) int {
+	var count int
+	_, err := fmt.Sscanf(fingerprint, "%d", &count)
+	if err != nil {
+		return 0
+	}
+	return count
+}
+
+// GetFingerprint 生成目录指纹
+// path: 目录路径
+// 返回指纹字符串 (格式: "文件数_目录修改时间戳")
+func (ss *ScanState) GetFingerprint(path string) (string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", err
 	}
 
-	// 如果标记为有变化，也需要扫描
-	return state.HasChanged
+	files, err := os.ReadDir(path)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%d_%d", len(files), info.ModTime().Unix()), nil
+}
+
+// UpdateFingerprint 更新目录指纹
+// path: 目录路径
+// fingerprint: 新的指纹
+func (ss *ScanState) UpdateFingerprint(path string, fingerprint string) {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+
+	state, exists := ss.PathStates[path]
+	if !exists {
+		state = &PathState{}
+		ss.PathStates[path] = state
+	}
+
+	state.FileCount = ss.parseFingerprintCount(fingerprint)
+	state.HasChanged = false
+	ss.Save()
 }
 
 // MarkChanged 标记路径有变化

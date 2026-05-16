@@ -150,7 +150,6 @@ func (m *Monitor) scanAll() {
 
 	for _, wp := range m.watchPaths {
 		if !wp.Enabled {
-			// 跳过禁用的路径
 			continue
 		}
 
@@ -159,18 +158,42 @@ func (m *Monitor) scanAll() {
 			m.onScanStart(wp.Path)
 		}
 
+		// 使用指纹判断是否需要扫描（增量扫描）
+		fingerprint, err := m.scanner.GetFingerprint(wp.Path)
+		if err != nil {
+			if m.onError != nil {
+				m.onError(fmt.Errorf("获取目录指纹失败: %v", err))
+			}
+			continue
+		}
+
+		// 如果指纹没变化，跳过扫描
+		if !m.scanner.NeedsScan(wp.Path, fingerprint) {
+			if m.onScanComplete != nil {
+				m.onScanComplete(wp.Path, &cleaner.CleanResult{
+					ScannedFiles: 0,
+					ScannedDirs:  0,
+					DeletedCount: 0,
+					DeletedSize:  0,
+					Duration:     0,
+					Skipped:      true,
+					Message:      "目录无变化，跳过扫描",
+				})
+			}
+			continue
+		}
+
 		// 执行清理
 		result, err := m.cleaner.CleanPath(m.ctx, wp.Path)
 		if err != nil {
-			// 触发错误回调
 			if m.onError != nil {
 				m.onError(err)
 			}
 			continue
 		}
 
-		// 更新扫描状态
-		m.scanner.MarkScanned(wp.Path, time.Now(), int(result.DeletedCount), int(result.DeletedSize))
+		// 更新指纹
+		m.scanner.UpdateFingerprint(wp.Path, fingerprint)
 
 		// 触发扫描完成回调
 		if m.onScanComplete != nil {
