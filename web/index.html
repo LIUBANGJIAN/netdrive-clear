@@ -929,7 +929,17 @@
 
             setInterval(refreshStatus, 10000);
 
-            log('info', '系统就绪！请先添加 WebDAV 服务器');
+            // 检查服务器列表，只在没有服务器时提示添加
+            try {
+                const servers = await api('/api/webdav/servers');
+                if (servers && servers.length > 0) {
+                    log('success', '系统就绪！WebDAV 服务器已配置');
+                } else {
+                    log('info', '系统就绪！请先添加 WebDAV 服务器');
+                }
+            } catch (e) {
+                log('info', '系统就绪！请先添加 WebDAV 服务器');
+            }
         }
 
         init();
