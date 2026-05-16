@@ -138,9 +138,43 @@ func (l *Logger) log(level LogLevel, message string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// 强制使用CST时区（UTC+8）
+	// 使用CST时区（UTC+8），如果加载失败则回退到UTC
 	now := time.Now()
-	loc, _ := time.LoadLocation("Asia/Shanghai")
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		// 如果时区加载失败，使用UTC时间
+		timeStr := now.Format("2006-01-02 15:04:05 UTC")
+		// 格式化日志内容
+		logStr := fmt.Sprintf("[%s] [%s] %s\n",
+			timeStr,
+			level,
+			message,
+		)
+		// 输出到控制台
+		fmt.Print(logStr)
+
+		// 写入日志文件
+		if l.logFile != nil {
+			l.logFile.WriteString(logStr)
+		}
+
+		// 添加到内存缓存
+		l.logs = append(l.logs, LogEntry{
+			Time:    timeStr,
+			Level:   string(level),
+			Message: message,
+		})
+
+		// 如果缓存超过最大值，移除最老的记录
+		if len(l.logs) > l.maxCache {
+			l.logs = l.logs[len(l.logs)-l.maxCache:]
+		}
+
+		// 检查日志文件大小
+		l.checkAndRotate()
+		return
+	}
+
 	cstTime := now.In(loc)
 	timeStr := cstTime.Format("2006-01-02 15:04:05 CST")
 
