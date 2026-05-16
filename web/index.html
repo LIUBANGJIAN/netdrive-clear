@@ -402,7 +402,8 @@
                 let html = '';
                 for (let i = 0; i < data.servers.length; i++) {
                     const s = data.servers[i];
-                    const status = await getServerStatus(s.name);
+                    // 使用Promise.all或简化状态检查
+                    const status = await getServerStatus(s.name).catch(() => ({ connected: false, error: '连接检查失败' }));
                     const statusIcon = status.connected ? '✅' : '❌';
                     const statusClass = status.connected ? 'badge-success' : 'badge-danger';
                     
