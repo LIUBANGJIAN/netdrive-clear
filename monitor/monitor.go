@@ -200,3 +200,11 @@ func (m *Monitor) IsRunning() bool {
 	defer m.mu.RUnlock()
 	return m.running
 }
+
+// UpdatePaths 更新监控路径列表
+// paths: 新的监控路径列表
+func (m *Monitor) UpdatePaths(paths []config.WatchPath) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.watchPaths = paths
+}

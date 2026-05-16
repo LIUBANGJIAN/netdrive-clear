@@ -244,7 +244,7 @@ func (s *Server) handleStatus(c *gin.Context) {
 	s.mu.RUnlock()
 
 	c.JSON(http.StatusOK, gin.H{
-		"version":            "v2.0.13",
+		"version":            "v2.0.14",
 		"webdav_connected":   testErr == nil,
 		"current_server":     s.webdavManager.GetCurrent(),
 		"server_count":       len(s.webdavManager.ListServers()),
@@ -304,6 +304,11 @@ func (s *Server) handleAddPath(c *gin.Context) {
 	if err := s.config.Save(s.configPath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	// 更新监控器的路径列表
+	if s.monitor != nil {
+		s.monitor.UpdatePaths(s.config.Paths.WatchPaths)
 	}
 
 	if s.logger != nil {

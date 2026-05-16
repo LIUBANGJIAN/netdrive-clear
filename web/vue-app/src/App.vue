@@ -5,7 +5,7 @@
         <div class="logo-section">
           <span class="logo-icon">🗑️</span>
           <span class="app-title">NetDrive Clear</span>
-          <span class="app-version">v2.0.13</span>
+          <span class="app-version">v2.0.14</span>
         </div>
         <p class="app-subtitle">WebDAV 云盘清理工具 - 自动清理广告文件和小视频</p>
       </div>
