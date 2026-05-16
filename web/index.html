@@ -899,11 +899,12 @@
                         const entry = document.createElement('div');
                         const zebraClass = index % 2 === 0 ? 'even' : 'odd';
                         entry.className = `log-entry ${logEntry.type} ${zebraClass}`;
-                        entry.innerHTML = `<span class="time">[${logEntry.time}]</span> ${logEntry.message}`;
+                        // 后端日志已经包含时间戳格式，直接显示消息
+                        entry.innerHTML = logEntry.message;
                         container.appendChild(entry);
                     });
                 } else {
-                    container.innerHTML = '<div class="log-entry info even"><span class="time">[等待中]</span> 系统就绪，等待配置...</div>';
+                    container.innerHTML = '<div class="log-entry info even">[等待中] 系统就绪，等待配置...</div>';
                 }
                 container.scrollTop = container.scrollHeight;
             } catch (e) {
