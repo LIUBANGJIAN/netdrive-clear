@@ -46,7 +46,7 @@ import (
 
 // 命令行参数定义
 var (
-	configFile = flag.String("config", "config.json", "配置文件路径")
+	configFile = flag.String("config", "data/config.json", "配置文件路径")
 	port       = flag.Int("port", 8080, "Web 管理界面端口")
 )
 

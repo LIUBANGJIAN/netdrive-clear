@@ -8,8 +8,8 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # 挂载数据目录用于持久化配置
-      - ./data:/app/data
+      # 挂载数据目录用于持久化配置（群晖Docker推荐路径）
+      - /volume2/docker/netdrive-clear/data:/app/data
     environment:
       - TZ=Asia/Shanghai
       - CONFIG_PATH=/app/data/config.json

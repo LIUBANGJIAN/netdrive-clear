@@ -20,36 +20,24 @@
       ".html",
       ".url",
       ".lnk",
-      ".bat",
-      ".cmd",
-      ".ps1",
-      ".vbs",
-      ".jse",
-      ".wsf",
-      ".wsh",
-      ".scf",
-      ".inf",
-      ".reg"
+      ".desktop",
+      ".ini",
+      ".inf"
     ],
     "video_extensions": [
       ".mp4",
       ".mkv",
       ".avi",
       ".mov",
-      ".wmv",
+      ".rmvb",
       ".flv",
-      ".webm",
-      ".m4v",
-      ".mpg",
-      ".mpeg",
-      ".3gp",
-      ".ts"
+      ".wmv"
     ],
     "min_video_size_mb": 10
   },
   "scan": {
-    "state_file": "scan_state.json",
-    "poll_interval_seconds": 60
+    "state_file": "data/scan_state.json",
+    "poll_interval_seconds": 30
   },
   "monitor": {
     "enabled": true,
@@ -63,8 +51,8 @@
     "watch_paths": []
   },
   "log": {
-    "log_path": "",
-    "max_size_mb": 0,
-    "max_cache": 0
+    "log_path": "data/app.log",
+    "max_size_mb": 10,
+    "max_cache": 1000
   }
 }
