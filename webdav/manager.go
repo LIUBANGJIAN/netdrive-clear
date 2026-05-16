@@ -190,6 +190,57 @@ func (m *Manager) GetSubFolderFingerprints(ctx context.Context, path string) (ma
 	return result, nil
 }
 
+// GetAllFoldersFingerprints 获取监控目录下所有层级文件夹的指纹
+// 用于多级嵌套场景：支持检测深层文件夹的变化（如 /BM/1234/567/）
+// path: 监控目录路径（如 /BON_115网盘/BM）
+// 返回所有文件夹指纹映射表
+func (m *Manager) GetAllFoldersFingerprints(ctx context.Context, path string) (map[string]string, error) {
+	client := m.GetClient()
+	if client == nil {
+		return nil, fmt.Errorf("没有可用的 WebDAV 服务器")
+	}
+
+	result := make(map[string]string)
+
+	// 递归遍历所有层级
+	err := m.collectAllFoldersFingerprints(ctx, client, path, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// collectAllFoldersFingerprints 递归收集所有层级文件夹的指纹
+func (m *Manager) collectAllFoldersFingerprints(ctx context.Context, client *Client, path string, result *map[string]string) error {
+	files, err := client.ListFiles(ctx, path)
+	if err != nil {
+		return err
+	}
+
+	for _, f := range files {
+		if f.IsDir {
+			// 收集该文件夹的指纹
+			var fileCount int64
+			var maxFileTime int64
+
+			// 递归收集该文件夹内所有文件的统计信息
+			m.collectFolderFileStats(ctx, client, f.FullPath, &fileCount, &maxFileTime)
+
+			// 指纹 = 文件夹修改时间_文件数_文件夹内最新文件时间
+			fingerprint := fmt.Sprintf("%d_%d_%d", f.ModifyTime.Unix(), fileCount, maxFileTime)
+			(*result)[f.FullPath] = fingerprint
+
+			// 递归处理子目录
+			if err := m.collectAllFoldersFingerprints(ctx, client, f.FullPath, result); err != nil {
+				continue
+			}
+		}
+	}
+
+	return nil
+}
+
 // collectFolderFileStats 递归收集文件夹内所有文件的统计信息
 func (m *Manager) collectFolderFileStats(ctx context.Context, client *Client, path string, fileCount *int64, maxFileTime *int64) error {
 	files, err := client.ListFiles(ctx, path)

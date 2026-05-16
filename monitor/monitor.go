@@ -169,7 +169,7 @@ func (m *Monitor) run() {
 	}
 }
 
-// quickCheck 快速检查子文件夹指纹是否有变化
+// quickCheck 快速检查所有层级子文件夹指纹是否有变化
 // 返回发生变化的子文件夹列表，空列表表示无变化
 func (m *Monitor) quickCheck() map[string][]string {
 	result := make(map[string][]string)
@@ -179,8 +179,8 @@ func (m *Monitor) quickCheck() map[string][]string {
 			continue
 		}
 
-		// 获取所有子文件夹的指纹
-		fingerprints, err := m.manager.GetSubFolderFingerprints(m.ctx, wp.Path)
+		// 获取监控目录下所有层级文件夹的指纹（支持多级嵌套）
+		fingerprints, err := m.manager.GetAllFoldersFingerprints(m.ctx, wp.Path)
 		if err != nil {
 			continue
 		}
@@ -224,8 +224,8 @@ func (m *Monitor) monitorScan(source string, changedFolders map[string][]string)
 			continue
 		}
 
-		// 获取当前所有子文件夹的指纹
-		fingerprints, err := m.manager.GetSubFolderFingerprints(m.ctx, wp.Path)
+		// 获取监控目录下所有层级文件夹的当前指纹
+		fingerprints, err := m.manager.GetAllFoldersFingerprints(m.ctx, wp.Path)
 		if err != nil {
 			if m.onError != nil {
 				m.onError(fmt.Errorf("获取子文件夹指纹失败: %v", err))
