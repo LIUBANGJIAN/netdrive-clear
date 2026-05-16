@@ -124,32 +124,51 @@ func (m *Manager) ListFilesByServer(ctx context.Context, serverName, path string
 }
 
 // GetFingerprint 获取目录指纹（用于增量扫描）
+// 递归收集所有子目录的修改时间，实现精确的增量扫描
 // path: WebDAV 目录路径
-// 返回指纹字符串 (格式: "文件数_最后修改时间戳")
+// 返回指纹字符串
 func (m *Manager) GetFingerprint(ctx context.Context, path string) (string, error) {
 	client := m.GetClient()
 	if client == nil {
 		return "", fmt.Errorf("没有可用的 WebDAV 服务器")
 	}
 
-	files, err := client.ListFiles(ctx, path)
+	// 递归收集文件数和最新修改时间
+	var fileCount int64
+	var maxModTime int64
+
+	err := m.collectFingerprintData(ctx, client, path, &fileCount, &maxModTime)
 	if err != nil {
 		return "", err
 	}
 
-	// 计算最新修改时间
-	var latestModTime int64
+	// 指纹 = 文件数_最新修改时间
+	return fmt.Sprintf("%d_%d", fileCount, maxModTime), nil
+}
+
+// collectFingerprintData 递归收集指纹数据（文件数和最新修改时间）
+func (m *Manager) collectFingerprintData(ctx context.Context, client *Client, path string, fileCount *int64, maxModTime *int64) error {
+	files, err := client.ListFiles(ctx, path)
+	if err != nil {
+		return err
+	}
+
 	for _, f := range files {
-		if !f.IsDir {
+		if f.IsDir {
+			// 递归处理子目录
+			if err := m.collectFingerprintData(ctx, client, f.FullPath, fileCount, maxModTime); err != nil {
+				continue
+			}
+		} else {
+			*fileCount++
 			mt := f.ModifyTime.Unix()
-			if mt > latestModTime {
-				latestModTime = mt
+			if mt > *maxModTime {
+				*maxModTime = mt
 			}
 		}
 	}
 
-	// 指纹 = 文件数_最新修改时间
-	return fmt.Sprintf("%d_%d", len(files), latestModTime), nil
+	return nil
 }
 
 // DeleteFile 删除文件（使用当前服务器）

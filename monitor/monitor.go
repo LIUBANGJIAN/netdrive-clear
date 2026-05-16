@@ -174,7 +174,32 @@ func (m *Monitor) scanAll() {
 			m.onScanStart(wp.Path)
 		}
 
-		// 执行清理（每次轮询都执行，不过滤）
+		// 获取目录指纹（递归收集所有子目录的修改时间）
+		fingerprint, err := m.manager.GetFingerprint(m.ctx, wp.Path)
+		if err != nil {
+			if m.onError != nil {
+				m.onError(fmt.Errorf("获取目录指纹失败: %v", err))
+			}
+			continue
+		}
+
+		// 如果指纹没变化，跳过扫描（增量扫描优化）
+		if !m.scanner.NeedsScan(wp.Path, fingerprint) {
+			if m.onScanComplete != nil {
+				m.onScanComplete(wp.Path, &cleaner.CleanResult{
+					ScannedFiles: 0,
+					ScannedDirs:  0,
+					DeletedCount: 0,
+					DeletedSize:  0,
+					Duration:     0,
+					Skipped:      true,
+					Message:      "目录无变化，跳过扫描",
+				})
+			}
+			continue
+		}
+
+		// 执行清理
 		result, err := m.cleaner.CleanPath(m.ctx, wp.Path)
 		if err != nil {
 			if m.onError != nil {
@@ -182,6 +207,9 @@ func (m *Monitor) scanAll() {
 			}
 			continue
 		}
+
+		// 更新指纹
+		m.scanner.UpdateFingerprint(wp.Path, fingerprint)
 
 		// 触发扫描完成回调
 		if m.onScanComplete != nil {
