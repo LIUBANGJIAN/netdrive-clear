@@ -138,7 +138,7 @@ func (m *Monitor) scanAll() {
 		}
 		return
 	}
-	
+
 	// 检查是否有可用服务器
 	servers := m.manager.ListServers()
 	if len(servers) == 0 {
@@ -170,7 +170,7 @@ func (m *Monitor) scanAll() {
 		}
 
 		// 更新扫描状态
-		m.scanner.MarkScanned(wp.Path, time.Now(), 0, 0)
+		m.scanner.MarkScanned(wp.Path, time.Now(), int(result.DeletedCount), int(result.DeletedSize))
 
 		// 触发扫描完成回调
 		if m.onScanComplete != nil {
