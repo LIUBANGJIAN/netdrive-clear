@@ -105,7 +105,11 @@ func (s *Server) setupRoutes() {
 	s.engine.PUT("/api/webdav/servers/:name", s.handleUpdateWebDAVServer)
 	s.engine.DELETE("/api/webdav/servers/:name", s.handleDeleteWebDAVServer)
 	s.engine.PUT("/api/webdav/servers/:name/current", s.handleSetCurrentWebDAVServer)
+	s.engine.PUT("/api/webdav/servers/:name/enabled", s.handleSetServerEnabled)
 	s.engine.GET("/api/webdav/servers/:name/status", s.handleGetServerStatus)
+
+	s.engine.GET("/api/config/cleaner", s.handleGetCleanerConfig)
+	s.engine.PUT("/api/config/cleaner", s.handleUpdateCleanerConfig)
 
 	s.engine.GET("/api/directory", s.handleGetDirectory)
 
@@ -580,6 +584,111 @@ func (s *Server) handleUpdateWebDAVServer(c *gin.Context) {
 
 	if s.logger != nil {
 		s.logger.Success("已更新 WebDAV 服务器: %s", name)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// handleSetServerEnabled 处理设置服务器启用状态请求
+func (s *Server) handleSetServerEnabled(c *gin.Context) {
+	name := c.Param("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
+		return
+	}
+
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 更新配置文件
+	found := false
+	for i, sv := range s.config.WebDAV.Servers {
+		if sv.Name == name {
+			s.config.WebDAV.Servers[i].Enabled = req.Enabled
+			found = true
+
+			// 如果启用，添加到管理器
+			if req.Enabled {
+				if err := s.webdavManager.AddServer(sv.Name, sv.Server, sv.Username, sv.Password); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					return
+				}
+				if s.webdavManager.GetCurrent() == "" {
+					s.webdavManager.SetCurrent(name)
+				}
+			} else {
+				// 如果禁用，从管理器中移除
+				s.webdavManager.RemoveServer(name)
+			}
+			break
+		}
+	}
+
+	if !found {
+		c.JSON(http.StatusNotFound, gin.H{"error": "server not found"})
+		return
+	}
+
+	if err := s.config.Save(s.configPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if s.logger != nil {
+		s.logger.Success("已%s WebDAV 服务器: %s", map[bool]string{true: "启用", false: "禁用"}[req.Enabled], name)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// handleGetCleanerConfig 处理获取清理器配置请求
+func (s *Server) handleGetCleanerConfig(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"ad_extensions":     s.config.Cleaner.AdExtensions,
+		"video_extensions":  s.config.Cleaner.VideoExtensions,
+		"min_video_size_mb": s.config.Cleaner.MinVideoSizeMB,
+	})
+}
+
+// handleUpdateCleanerConfig 处理更新清理器配置请求
+func (s *Server) handleUpdateCleanerConfig(c *gin.Context) {
+	var req struct {
+		AdExtensions    []string `json:"ad_extensions"`
+		VideoExtensions []string `json:"video_extensions"`
+		MinVideoSizeMB  int64    `json:"min_video_size_mb"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.AdExtensions != nil {
+		s.config.Cleaner.AdExtensions = req.AdExtensions
+	}
+	if req.VideoExtensions != nil {
+		s.config.Cleaner.VideoExtensions = req.VideoExtensions
+	}
+	if req.MinVideoSizeMB > 0 {
+		s.config.Cleaner.MinVideoSizeMB = req.MinVideoSizeMB
+	}
+
+	if err := s.config.Save(s.configPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 更新cleaner实例的配置
+	if s.cleaner != nil {
+		s.cleaner.UpdateConfig(&s.config.Cleaner)
+	}
+
+	if s.logger != nil {
+		s.logger.Success("已更新清理器配置")
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true})

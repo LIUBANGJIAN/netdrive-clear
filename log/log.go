@@ -15,6 +15,7 @@ package log
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -79,7 +80,7 @@ func NewLogger(cfg *Config) (*Logger, error) {
 	}
 
 	// 确保日志目录存在
-	logDir := cfg.LogPath[:len(cfg.LogPath)-len(cfg.LogPath[len(cfg.LogPath)-1:])]
+	logDir := filepath.Dir(cfg.LogPath)
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		return nil, err
 	}

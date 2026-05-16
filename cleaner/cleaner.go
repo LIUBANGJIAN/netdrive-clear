@@ -289,3 +289,11 @@ func (c *Cleaner) ResetDeletedCount() {
 	c.deleted = 0
 	c.deletedSize = 0
 }
+
+// UpdateConfig 更新清理器配置
+// cfg: 新的清理配置
+func (c *Cleaner) UpdateConfig(cfg *config.CleanerConfig) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.config = cfg
+}
