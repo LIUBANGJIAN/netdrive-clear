@@ -873,7 +873,8 @@
                 await api('/api/paths', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ Path: fullPath, Enabled: true, ScanMode: scanMode })
+                    // 使用小写字段名匹配后端Go结构体的JSON tag
+                    body: JSON.stringify({ path: fullPath, enabled: true, scan_mode: scanMode })
                 });
                 log('success', `已添加监控路径：${fullPath}`);
                 loadPaths();

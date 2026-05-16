@@ -72,7 +72,6 @@ func main() {
 		stdlog.Fatalf("[错误] 加载配置文件失败: %v", err)
 	}
 
-	// 初始化日志
 	logger, err = initLogger(cfg)
 	if err != nil {
 		stdlog.Fatalf("[错误] 初始化日志失败: %v", err)
@@ -82,6 +81,16 @@ func main() {
 	logger.Info("配置文件路径: %s", configPath)
 	logger.Info("==================================")
 	logger.Info("NetDrive Clear 服务启动中...")
+
+	// 调试：打印配置信息
+	logger.Info("配置文件中 WebDAV 服务器数量: %d", len(cfg.WebDAV.Servers))
+	for i, server := range cfg.WebDAV.Servers {
+		logger.Info("  服务器 %d: name=%s, enabled=%v", i+1, server.Name, server.Enabled)
+	}
+	logger.Info("配置文件中监控路径数量: %d", len(cfg.Paths.WatchPaths))
+	for i, path := range cfg.Paths.WatchPaths {
+		logger.Info("  路径 %d: %s", i+1, path)
+	}
 
 	// 初始化 WebDAV 管理器
 	webdavManager, _ := initWebDAV(cfg)
@@ -166,7 +175,7 @@ func initWebDAV(cfg *config.Config) (*webdav.Manager, error) {
 func printBanner() {
 	fmt.Println(`
 ╔══════════════════════════════════════════════════════════════════╗
-║                    NetDrive Clear v2.0.11                       ║
+║                    NetDrive Clear v2.0.12                       ║
 ║              CloudDrive2 云盘自动清理工具                        ║
 ║                                                                ║
 ║  功能: 自动删除广告文件、小视频文件、增量扫描、实时监控            ║
