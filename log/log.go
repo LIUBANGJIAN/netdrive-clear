@@ -138,8 +138,11 @@ func (l *Logger) log(level LogLevel, message string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	now := time.Now().Local()
-	timeStr := now.Format("2006-01-02 15:04:05 MST")
+	// 强制使用CST时区（UTC+8）
+	now := time.Now()
+	loc, _ := time.LoadLocation("Asia/Shanghai")
+	cstTime := now.In(loc)
+	timeStr := cstTime.Format("2006-01-02 15:04:05 CST")
 
 	// 格式化日志内容
 	logStr := fmt.Sprintf("[%s] [%s] %s\n",
