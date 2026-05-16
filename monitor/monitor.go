@@ -68,6 +68,18 @@ func NewMonitor(manager *webdav.Manager, cl *cleaner.Cleaner, sc *scanner.ScanSt
 	}
 }
 
+// SetCallbacks 设置回调函数
+// onScanStart: 扫描开始回调
+// onScanComplete: 扫描完成回调
+// onError: 错误回调
+func (m *Monitor) SetCallbacks(onScanStart func(path string), onScanComplete func(path string, result *cleaner.CleanResult), onError func(err error)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.onScanStart = onScanStart
+	m.onScanComplete = onScanComplete
+	m.onError = onError
+}
+
 // Start 启动监控
 // 返回错误信息
 func (m *Monitor) Start() error {

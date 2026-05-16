@@ -955,9 +955,15 @@
 
             // 检查服务器列表，只在没有服务器时提示添加
             try {
-                const servers = await api('/api/webdav/servers');
+                const serverData = await api('/api/webdav/servers');
+                const servers = serverData.servers || [];
                 if (servers && servers.length > 0) {
-                    log('success', '系统就绪！WebDAV 服务器已配置');
+                    const enabledCount = servers.filter(s => s.enabled !== false).length;
+                    if (enabledCount > 0) {
+                        log('success', '系统就绪！WebDAV 服务器已配置');
+                    } else {
+                        log('info', '系统就绪！请启用至少一个 WebDAV 服务器');
+                    }
                 } else {
                     log('info', '系统就绪！请先添加 WebDAV 服务器');
                 }

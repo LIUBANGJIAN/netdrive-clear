@@ -100,6 +100,25 @@ func main() {
 	scanState := scanner.NewScanState(cfg.Scan.StateFile)
 	monitorInstance := monitor.NewMonitor(webdavManager, cleanerInstance, scanState, &cfg.Monitor, cfg.Paths.WatchPaths)
 
+	// 设置监控器回调函数
+	monitorInstance.SetCallbacks(
+		func(path string) {
+			logger.Info("开始扫描路径: %s", path)
+		},
+		func(path string, result *cleaner.CleanResult) {
+			if result.Skipped {
+				logger.Info("跳过扫描: %s - %s", path, result.Message)
+			} else if result.DeletedCount > 0 {
+				logger.Success("扫描完成: %s - 扫描 %d 个文件, 删除 %d 个文件", path, result.ScannedFiles, result.DeletedCount)
+			} else {
+				logger.Info("扫描完成: %s - 扫描 %d 个文件, 无需要删除的文件", path, result.ScannedFiles)
+			}
+		},
+		func(err error) {
+			logger.Error("监控错误: %v", err)
+		},
+	)
+
 	// 初始化 Web 服务器
 	webServer := web.NewServer(cfg, configPath, webdavManager, cleanerInstance, scanState, monitorInstance, logger)
 
@@ -175,7 +194,7 @@ func initWebDAV(cfg *config.Config) (*webdav.Manager, error) {
 func printBanner() {
 	fmt.Println(`
 ╔══════════════════════════════════════════════════════════════════╗
-║                    NetDrive Clear v2.0.24                       ║
+║                    NetDrive Clear v2.0.25                       ║
 ║              CloudDrive2 云盘自动清理工具                        ║
 ║                                                                ║
 ║  功能: 自动删除广告文件、小视频文件、增量扫描、实时监控            ║
