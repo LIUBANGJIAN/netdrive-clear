@@ -67,15 +67,17 @@ func (c *Cleaner) CleanPath(ctx context.Context, path string) (*CleanResult, err
 
 	// 记录清理开始
 	if c.logger != nil {
-		c.logger.Info("========== 清理任务开始 ==========")
-		c.logger.Info("清理路径: %s", path)
-		c.logger.Info("开始时间: %s", startTime.Format("2006-01-02 15:04:05"))
+		c.logger.Info("┌──────────────────────────────────────────────────────┐")
+		c.logger.Info("│ 清理任务开始")
+		c.logger.Info("│ 路径: %s", path)
+		c.logger.Info("│ 时间: %s", startTime.Format("2006-01-02 15:04:05"))
+		c.logger.Info("└──────────────────────────────────────────────────────┘")
 	}
 
 	// 检查 WebDAV 管理器是否可用
 	if c.manager == nil {
 		if c.logger != nil {
-			c.logger.Error("清理失败: 没有可用的 WebDAV 管理器")
+			c.logger.Error("[ERROR] 没有可用的 WebDAV 管理器")
 		}
 		return nil, fmt.Errorf("没有可用的 WebDAV 管理器")
 	}
@@ -84,16 +86,13 @@ func (c *Cleaner) CleanPath(ctx context.Context, path string) (*CleanResult, err
 	servers := c.manager.ListServers()
 	if len(servers) == 0 {
 		if c.logger != nil {
-			c.logger.Error("清理失败: 没有可用的 WebDAV 服务器")
+			c.logger.Error("[ERROR] 没有可用的 WebDAV 服务器")
 		}
 		return nil, fmt.Errorf("没有可用的 WebDAV 服务器，请先在 Web 界面配置")
 	}
 
 	if c.logger != nil {
-		c.logger.Info("可用服务器数量: %d", len(servers))
-		for i, server := range servers {
-			c.logger.Info("  [%d] %s", i+1, server)
-		}
+		c.logger.Info("[INFO] 可用服务器: %d 个", len(servers))
 	}
 
 	// 获取初始指纹（用于跳过未变化的子目录）
@@ -110,14 +109,14 @@ func (c *Cleaner) CleanPath(ctx context.Context, path string) (*CleanResult, err
 	// 遍历所有服务器进行清理
 	for _, serverName := range servers {
 		if c.logger != nil {
-			c.logger.Info("开始清理服务器 [%s] ...", serverName)
+			c.logger.Info("[SERVER] %s", serverName)
 		}
 
 		serverResult, err := c.cleanPathOnServer(ctx, serverName, path, initialFingerprints)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("服务器 %s: %v", serverName, err))
 			if c.logger != nil {
-				c.logger.Error("服务器 [%s] 清理失败: %v", serverName, err)
+				c.logger.Error("[ERROR] 服务器 %s 失败: %v", serverName, err)
 			}
 			continue
 		}
@@ -128,7 +127,7 @@ func (c *Cleaner) CleanPath(ctx context.Context, path string) (*CleanResult, err
 		result.Errors = append(result.Errors, serverResult.Errors...)
 
 		if c.logger != nil {
-			c.logger.Success("服务器 [%s] 清理完成: 删除 %d 个文件 (%.2f MB)",
+			c.logger.Success("[DONE] %s - 删除 %d 个文件 (%.2f MB)",
 				serverName, serverResult.DeletedCount, float64(serverResult.DeletedSize)/1024/1024)
 		}
 	}
@@ -136,12 +135,12 @@ func (c *Cleaner) CleanPath(ctx context.Context, path string) (*CleanResult, err
 	// 记录清理结束
 	duration := time.Since(startTime)
 	if c.logger != nil {
-		c.logger.Info("========== 清理任务结束 ==========")
-		c.logger.Info("总删除文件数: %d", result.DeletedCount)
-		c.logger.Info("总删除文件大小: %.2f MB", float64(result.DeletedSize)/1024/1024)
-		c.logger.Info("总错误数: %d", len(result.Errors))
-		c.logger.Info("耗时: %s", duration.String())
-		c.logger.Info("==================================")
+		c.logger.Info("┌──────────────────────────────────────────────────────┐")
+		c.logger.Info("│ 清理任务完成")
+		c.logger.Info("│ 删除文件: %d 个 (%.2f MB)", result.DeletedCount, float64(result.DeletedSize)/1024/1024)
+		c.logger.Info("│ 错误数量: %d", len(result.Errors))
+		c.logger.Info("│ 耗时: %.2f 秒", duration.Seconds())
+		c.logger.Info("└──────────────────────────────────────────────────────┘")
 	}
 
 	return result, nil
@@ -157,8 +156,19 @@ func (c *Cleaner) cleanPathOnServer(ctx context.Context, serverName, path string
 		return nil, fmt.Errorf("扫描目录失败: %w", err)
 	}
 
+	// 统计文件和目录数量
+	fileCount := 0
+	dirCount := 0
+	for _, f := range files {
+		if f.IsDir {
+			dirCount++
+		} else {
+			fileCount++
+		}
+	}
+
 	if c.logger != nil {
-		c.logger.Info("扫描目录 [%s]: 发现 %d 个文件/目录", path, len(files))
+		c.logger.Info("[DIR] %s - %d 个目录, %d 个文件", path, dirCount, fileCount)
 	}
 
 	// 遍历文件，递归处理目录
@@ -173,7 +183,7 @@ func (c *Cleaner) cleanPathOnServer(ctx context.Context, serverName, path string
 					cachedTime := strings.Split(cachedFingerprint, "_")[0]
 					if cachedTime == currentFingerprint {
 						if c.logger != nil {
-							c.logger.Info("跳过未变化的子目录: %s", file.FullPath)
+							c.logger.Info("[SKIP] %s (无变化)", file.FullPath)
 						}
 						continue
 					}
@@ -182,14 +192,14 @@ func (c *Cleaner) cleanPathOnServer(ctx context.Context, serverName, path string
 
 			// 递归清理子目录（在同一服务器上）
 			if c.logger != nil {
-				c.logger.Info("进入子目录: %s", file.FullPath)
+				c.logger.Info("[SCAN] %s", file.FullPath)
 			}
 
 			subResult, err := c.cleanPathOnServer(ctx, serverName, file.FullPath, fingerprints)
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", file.FullPath, err))
 				if c.logger != nil {
-					c.logger.Warn("子目录清理失败 [%s]: %v", file.FullPath, err)
+					c.logger.Warn("[WARN] 子目录扫描失败 %s: %v", file.FullPath, err)
 				}
 				continue
 			}
@@ -204,7 +214,7 @@ func (c *Cleaner) cleanPathOnServer(ctx context.Context, serverName, path string
 			if shouldDelete {
 				// 执行删除（在指定服务器上）
 				if c.logger != nil {
-					c.logger.Info("删除文件 [%s]: %.2f MB, 原因: %s",
+					c.logger.Info("[DELETE] %s (%.2f MB) - %s",
 						file.FullPath, float64(file.Size)/1024/1024, reason)
 				}
 
@@ -212,7 +222,7 @@ func (c *Cleaner) cleanPathOnServer(ctx context.Context, serverName, path string
 				if err != nil {
 					result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", file.FullPath, err))
 					if c.logger != nil {
-						c.logger.Error("删除失败 [%s]: %v", file.FullPath, err)
+						c.logger.Error("[ERROR] 删除失败 %s: %v", file.FullPath, err)
 					}
 				} else {
 					// 更新计数
@@ -227,7 +237,7 @@ func (c *Cleaner) cleanPathOnServer(ctx context.Context, serverName, path string
 						fmt.Sprintf("%s (%.2f MB, %s)", file.FullPath, float64(file.Size)/1024/1024, reason))
 
 					if c.logger != nil {
-						c.logger.Success("删除成功 [%s]: %.2f MB",
+						c.logger.Success("[OK] 删除成功 %s (%.2f MB)",
 							file.FullPath, float64(file.Size)/1024/1024)
 					}
 				}
