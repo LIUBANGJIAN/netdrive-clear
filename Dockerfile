@@ -2,7 +2,7 @@
 # 支持 x86_64 和 ARM 架构
 
 # 多阶段构建：第一阶段用于编译
-FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1.22-alpine AS builder
+FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1.23-alpine AS builder
 
 # 设置工作目录
 WORKDIR /app
