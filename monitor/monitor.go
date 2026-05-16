@@ -134,12 +134,22 @@ func (m *Monitor) run() {
 		// 创建新的定时器
 		ticker := time.NewTicker(time.Duration(interval) * time.Second)
 
+		if m.onScanStart != nil {
+			m.onScanStart(fmt.Sprintf("等待下次扫描 (间隔: %d秒)", interval))
+		}
+
 		select {
 		case <-m.ctx.Done():
 			ticker.Stop()
+			if m.onError != nil {
+				m.onError(fmt.Errorf("监控已停止"))
+			}
 			return
 		case <-ticker.C:
 			ticker.Stop()
+			if m.onScanStart != nil {
+				m.onScanStart("定时触发扫描")
+			}
 			m.scanAll()
 		}
 	}
