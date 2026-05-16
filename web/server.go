@@ -170,6 +170,10 @@ func (s *Server) handleUpdateConfig(c *gin.Context) {
 		return
 	}
 
+	if s.monitor != nil {
+		s.monitor.UpdateConfig(&s.config.Monitor)
+	}
+
 	if s.logger != nil {
 		s.logger.Info("配置已更新")
 	}
@@ -244,7 +248,7 @@ func (s *Server) handleStatus(c *gin.Context) {
 	s.mu.RUnlock()
 
 	c.JSON(http.StatusOK, gin.H{
-		"version":            "v2.0.20",
+		"version":            "v2.0.21",
 		"webdav_connected":   testErr == nil,
 		"current_server":     s.webdavManager.GetCurrent(),
 		"server_count":       len(s.webdavManager.ListServers()),

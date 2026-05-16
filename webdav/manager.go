@@ -123,6 +123,35 @@ func (m *Manager) ListFilesByServer(ctx context.Context, serverName, path string
 	return client.ListFiles(ctx, path)
 }
 
+// GetFingerprint 获取目录指纹（用于增量扫描）
+// path: WebDAV 目录路径
+// 返回指纹字符串 (格式: "文件数_最后修改时间戳")
+func (m *Manager) GetFingerprint(ctx context.Context, path string) (string, error) {
+	client := m.GetClient()
+	if client == nil {
+		return "", fmt.Errorf("没有可用的 WebDAV 服务器")
+	}
+
+	files, err := client.ListFiles(ctx, path)
+	if err != nil {
+		return "", err
+	}
+
+	// 计算最新修改时间
+	var latestModTime int64
+	for _, f := range files {
+		if !f.IsDir {
+			mt := f.ModifyTime.Unix()
+			if mt > latestModTime {
+				latestModTime = mt
+			}
+		}
+	}
+
+	// 指纹 = 文件数_最新修改时间
+	return fmt.Sprintf("%d_%d", len(files), latestModTime), nil
+}
+
 // DeleteFile 删除文件（使用当前服务器）
 func (m *Manager) DeleteFile(ctx context.Context, path string) error {
 	client := m.GetClient()

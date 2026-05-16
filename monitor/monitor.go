@@ -158,8 +158,8 @@ func (m *Monitor) scanAll() {
 			m.onScanStart(wp.Path)
 		}
 
-		// 使用指纹判断是否需要扫描（增量扫描）
-		fingerprint, err := m.scanner.GetFingerprint(wp.Path)
+		// 使用 WebDAV 获取指纹（增量扫描）
+		fingerprint, err := m.manager.GetFingerprint(m.ctx, wp.Path)
 		if err != nil {
 			if m.onError != nil {
 				m.onError(fmt.Errorf("获取目录指纹失败: %v", err))
@@ -225,9 +225,16 @@ func (m *Monitor) IsRunning() bool {
 }
 
 // UpdatePaths 更新监控路径列表
-// paths: 新的监控路径列表
+// UpdatePaths 更新监控路径
 func (m *Monitor) UpdatePaths(paths []config.WatchPath) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.watchPaths = paths
+}
+
+// UpdateConfig 更新监控配置（用于运行时动态更新）
+func (m *Monitor) UpdateConfig(cfg *config.MonitorConfig) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.config = cfg
 }
