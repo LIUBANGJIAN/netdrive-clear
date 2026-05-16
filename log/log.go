@@ -56,14 +56,17 @@ const colorReset = "\033[0m"
 
 // Logger 日志管理器
 type Logger struct {
-	mu         sync.Mutex // 并发锁
-	logFile    *os.File   // 日志文件句柄
-	logPath    string     // 日志文件路径
-	maxSize    int64      // 最大文件大小（字节）
-	logs       []LogEntry // 内存日志缓存
-	maxCache   int        // 最大缓存条数
-	minLevel   LogLevel   // 最小输出级别
-	console    bool       // 是否输出到控制台
+	mu       sync.Mutex // 并发锁
+	logFile  *os.File   // 日志文件句柄
+	logPath  string     // 日志文件路径
+	maxSize  int64      // 最大文件大小（字节）
+	logs     []LogEntry // 内存日志缓存
+	maxCache int        // 最大缓存条数
+	minLevel LogLevel   // 最小输出级别
+	console  bool       // 是否输出到控制台
+
+	subscribers []chan<- LogEntry // 日志订阅者通道
+	subMu       sync.Mutex        // 订阅者锁
 }
 
 // LogEntry 日志条目
@@ -256,6 +259,9 @@ func (l *Logger) log(level LogLevel, message string) {
 	if len(l.logs) > l.maxCache {
 		l.logs = l.logs[len(l.logs)-l.maxCache:]
 	}
+
+	// 通知所有订阅者
+	l.notifySubscribers(entry)
 }
 
 // checkAndRotate 检查并滚动日志文件
@@ -369,4 +375,42 @@ func (l *Logger) GetMinLevel() LogLevel {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return l.minLevel
+}
+
+// Subscribe 订阅日志
+// channel: 接收日志的通道
+// bufferSize: 通道缓冲区大小
+func (l *Logger) Subscribe(channel chan<- LogEntry) {
+	l.subMu.Lock()
+	defer l.subMu.Unlock()
+	l.subscribers = append(l.subscribers, channel)
+}
+
+// Unsubscribe 取消订阅日志
+// channel: 要取消的通道
+func (l *Logger) Unsubscribe(channel chan<- LogEntry) {
+	l.subMu.Lock()
+	defer l.subMu.Unlock()
+
+	for i, ch := range l.subscribers {
+		if ch == channel {
+			l.subscribers = append(l.subscribers[:i], l.subscribers[i+1:]...)
+			break
+		}
+	}
+}
+
+// notifySubscribers 通知所有订阅者
+func (l *Logger) notifySubscribers(entry LogEntry) {
+	l.subMu.Lock()
+	defer l.subMu.Unlock()
+
+	for _, ch := range l.subscribers {
+		select {
+		case ch <- entry:
+			// 发送成功
+		default:
+			// 通道已满，丢弃
+		}
+	}
 }

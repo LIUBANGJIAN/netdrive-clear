@@ -915,6 +915,31 @@
             }
         }
 
+        // 初始化 SSE 连接
+        function initSSE() {
+            const eventSource = new EventSource('/api/logs/stream');
+            
+            eventSource.addEventListener('log', function(event) {
+                try {
+                    const entry = JSON.parse(event.data);
+                    const container = document.getElementById('log-container');
+                    const newEntry = document.createElement('div');
+                    newEntry.className = `log-entry ${entry.level.toLowerCase()}`;
+                    newEntry.innerHTML = `<span class="time">[${entry.time}]</span> ${entry.message}`;
+                    container.appendChild(newEntry);
+                    container.scrollTop = container.scrollHeight;
+                } catch (e) {
+                    console.error('解析 SSE 消息失败:', e);
+                }
+            });
+
+            eventSource.onerror = function(error) {
+                console.error('SSE 连接错误:', error);
+                // 尝试重连
+                setTimeout(initSSE, 5000);
+            };
+        }
+
         async function init() {
             log('info', '系统启动中...');
             await loadConfig();
@@ -924,6 +949,9 @@
             await refreshStatus();
 
             setInterval(refreshStatus, 10000);
+
+            // 初始化 SSE 实时日志
+            initSSE();
 
             // 检查服务器列表，只在没有服务器时提示添加
             try {

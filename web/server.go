@@ -92,6 +92,8 @@ func (s *Server) setupRoutes() {
 
 	s.engine.GET("/api/status", s.handleStatus)
 
+	s.engine.GET("/api/logs/stream", s.handleLogsStream)
+
 	s.engine.POST("/api/monitor/start", s.handleMonitorStart)
 	s.engine.POST("/api/monitor/stop", s.handleMonitorStop)
 	s.engine.GET("/api/monitor/stats", s.handleMonitorStats)
@@ -248,7 +250,7 @@ func (s *Server) handleStatus(c *gin.Context) {
 	s.mu.RUnlock()
 
 	c.JSON(http.StatusOK, gin.H{
-		"version":            "v2.0.23",
+		"version":            "v2.0.24",
 		"webdav_connected":   testErr == nil,
 		"current_server":     s.webdavManager.GetCurrent(),
 		"server_count":       len(s.webdavManager.ListServers()),
@@ -788,6 +790,45 @@ func (s *Server) handleClearLogs(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// handleLogsStream 处理日志流请求 (SSE)
+func (s *Server) handleLogsStream(c *gin.Context) {
+	if s.logger == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "日志模块未初始化"})
+		return
+	}
+
+	// 设置 SSE 响应头
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("Access-Control-Allow-Origin", "*")
+
+	// 创建通道接收日志
+	logChan := make(chan log.LogEntry, 100)
+	s.logger.Subscribe(logChan)
+
+	// 取消订阅函数
+	defer func() {
+		s.logger.Unsubscribe(logChan)
+		close(logChan)
+	}()
+
+	// 获取当前上下文
+	ctx := c.Request.Context()
+
+	for {
+		select {
+		case <-ctx.Done():
+			// 客户端断开连接
+			return
+		case entry := <-logChan:
+			// 发送 SSE 消息
+			c.SSEvent("log", entry)
+			c.Writer.Flush()
+		}
+	}
 }
 
 // handleIndex 处理首页请求
