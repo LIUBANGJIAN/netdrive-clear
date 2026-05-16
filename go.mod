@@ -3,7 +3,6 @@ module netdrive-clear
 go 1.23
 
 require (
-	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-gonic/gin v1.9.1
 	github.com/studio-b12/gowebdav v0.12.0
 	google.golang.org/grpc v1.68.0
