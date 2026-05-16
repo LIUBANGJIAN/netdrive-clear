@@ -1,13 +1,15 @@
 /*
- * 日志模块
+ * 日志模块 - 完整重写版本
  * 提供规范化的日志输出和管理功能
  *
  * 功能特性:
- *   1. 支持多种日志级别: INFO, WARN, ERROR, SUCCESS
- *   2. 日志同时输出到控制台和文件
- *   3. 支持日志文件滚动
- *   4. 支持日志清空
- *   5. 支持获取日志内容
+ *   1. 支持多种日志级别: DEBUG, INFO, WARN, ERROR, SUCCESS
+ *   2. 控制台彩色输出
+ *   3. 日志同时输出到控制台和文件
+ *   4. 支持日志文件滚动
+ *   5. 支持日志清空和获取
+ *   6. 支持日志级别过滤
+ *   7. 使用CST时区，不依赖系统时区文件
  */
 
 package log
@@ -21,23 +23,47 @@ import (
 )
 
 // LogLevel 日志级别
-type LogLevel string
+type LogLevel int
 
 const (
-	INFO    LogLevel = "INFO"    // 信息级别
-	WARN    LogLevel = "WARN"    // 警告级别
-	ERROR   LogLevel = "ERROR"   // 错误级别
-	SUCCESS LogLevel = "SUCCESS" // 成功级别
+	DEBUG LogLevel = iota
+	INFO
+	WARN
+	ERROR
+	SUCCESS
 )
+
+// 日志级别名称
+var levelNames = []string{
+	"DEBUG",
+	"INFO",
+	"WARN",
+	"ERROR",
+	"SUCCESS",
+}
+
+// 日志级别颜色（ANSI转义码）
+var levelColors = []string{
+	"\033[36m", // DEBUG - 青色
+	"\033[32m", // INFO - 绿色
+	"\033[33m", // WARN - 黄色
+	"\033[31m", // ERROR - 红色
+	"\033[32m", // SUCCESS - 绿色
+}
+
+// 重置颜色
+const colorReset = "\033[0m"
 
 // Logger 日志管理器
 type Logger struct {
-	mu       sync.Mutex // 并发锁
-	logFile  *os.File   // 日志文件句柄
-	logPath  string     // 日志文件路径
-	maxSize  int64      // 最大文件大小（字节）
-	logs     []LogEntry // 内存日志缓存
-	maxCache int        // 最大缓存条数
+	mu         sync.Mutex // 并发锁
+	logFile    *os.File   // 日志文件句柄
+	logPath    string     // 日志文件路径
+	maxSize    int64      // 最大文件大小（字节）
+	logs       []LogEntry // 内存日志缓存
+	maxCache   int        // 最大缓存条数
+	minLevel   LogLevel   // 最小输出级别
+	console    bool       // 是否输出到控制台
 }
 
 // LogEntry 日志条目
@@ -52,11 +78,13 @@ type Config struct {
 	LogPath   string `json:"log_path"`    // 日志文件路径
 	MaxSizeMB int64  `json:"max_size_mb"` // 最大文件大小（MB）
 	MaxCache  int    `json:"max_cache"`   // 最大内存缓存条数
+	MinLevel  string `json:"min_level"`   // 最小日志级别
+	Console   bool   `json:"console"`     // 是否输出到控制台
 }
 
 // 默认配置
 const (
-	defaultLogPath   = "logs/app.log"
+	defaultLogPath   = "data/app.log"
 	defaultMaxSizeMB = 10
 	defaultMaxCache  = 1000
 )
@@ -79,6 +107,9 @@ func NewLogger(cfg *Config) (*Logger, error) {
 		cfg.MaxCache = defaultMaxCache
 	}
 
+	// 解析最小日志级别
+	minLevel := parseLevel(cfg.MinLevel)
+
 	// 确保日志目录存在
 	logDir := filepath.Dir(cfg.LogPath)
 	if err := os.MkdirAll(logDir, 0755); err != nil {
@@ -97,7 +128,27 @@ func NewLogger(cfg *Config) (*Logger, error) {
 		maxSize:  cfg.MaxSizeMB * 1024 * 1024,
 		logs:     make([]LogEntry, 0, cfg.MaxCache),
 		maxCache: cfg.MaxCache,
+		minLevel: minLevel,
+		console:  cfg.Console,
 	}, nil
+}
+
+// parseLevel 解析日志级别字符串
+func parseLevel(levelStr string) LogLevel {
+	switch levelStr {
+	case "DEBUG":
+		return DEBUG
+	case "INFO":
+		return INFO
+	case "WARN":
+		return WARN
+	case "ERROR":
+		return ERROR
+	case "SUCCESS":
+		return SUCCESS
+	default:
+		return DEBUG // 默认输出所有级别
+	}
 }
 
 // Close 关闭日志管理器
@@ -109,6 +160,11 @@ func (l *Logger) Close() error {
 		return l.logFile.Close()
 	}
 	return nil
+}
+
+// Debug 输出调试日志
+func (l *Logger) Debug(format string, args ...interface{}) {
+	l.log(DEBUG, fmt.Sprintf(format, args...))
 }
 
 // Info 输出信息日志
@@ -135,6 +191,11 @@ func (l *Logger) Success(format string, args ...interface{}) {
 // level: 日志级别
 // message: 日志消息
 func (l *Logger) log(level LogLevel, message string) {
+	// 检查日志级别过滤
+	if level < l.minLevel {
+		return
+	}
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -143,32 +204,49 @@ func (l *Logger) log(level LogLevel, message string) {
 	cstTime := now.Add(time.Hour * 8)
 	timeStr := cstTime.Format("2006-01-02 15:04:05 CST")
 
-	// 格式化日志内容
-	logStr := fmt.Sprintf("[%s] [%s] %s\n",
+	// 获取级别名称和颜色
+	levelName := levelNames[level]
+	levelColor := levelColors[level]
+
+	// 格式化日志内容（带颜色）
+	colorLogStr := fmt.Sprintf("%s[%s] [%s]%s %s\n",
+		levelColor,
 		timeStr,
-		level,
+		levelName,
+		colorReset,
+		message,
+	)
+
+	// 格式化日志内容（无颜色，用于文件）
+	fileLogStr := fmt.Sprintf("[%s] [%s] %s\n",
+		timeStr,
+		levelName,
 		message,
 	)
 
 	// 输出到控制台
-	fmt.Print(logStr)
+	if l.console || true { // 默认输出到控制台
+		fmt.Print(colorLogStr)
+	}
 
 	// 检查文件大小，需要滚动
 	if err := l.checkAndRotate(); err != nil {
-		fmt.Printf("[ERROR] 日志文件滚动失败: %v\n", err)
+		fmt.Printf("%s[ERROR] [%s] 日志文件滚动失败: %v%s\n",
+			levelColors[ERROR], timeStr, err, colorReset)
 	}
 
 	// 写入文件
 	if l.logFile != nil {
-		if _, err := l.logFile.WriteString(logStr); err != nil {
-			fmt.Printf("[ERROR] 写入日志文件失败: %v\n", err)
+		if _, err := l.logFile.WriteString(fileLogStr); err != nil {
+			fmt.Printf("%s[ERROR] [%s] 写入日志文件失败: %v%s\n",
+				levelColors[ERROR], timeStr, err, colorReset)
 		}
 	}
 
 	// 添加到内存缓存
 	entry := LogEntry{
 		Time:    timeStr,
-		Level:   string(level),
+		Level:   levelName,
 		Message: message,
 	}
 
@@ -198,7 +276,8 @@ func (l *Logger) checkAndRotate() error {
 		}
 
 		// 重命名旧文件
-		oldPath := l.logPath + "." + time.Now().Format("20060102_150405")
+		now := time.Now().UTC().Add(time.Hour * 8)
+		oldPath := l.logPath + "." + now.Format("20060102_150405")
 		if err := os.Rename(l.logPath, oldPath); err != nil {
 			return err
 		}
@@ -216,7 +295,7 @@ func (l *Logger) checkAndRotate() error {
 }
 
 // GetLogs 获取最近的日志
-// count: 获取日志条数
+// count: 获取日志条数，0表示获取全部
 // 返回日志条目列表
 func (l *Logger) GetLogs(count int) []LogEntry {
 	l.mu.Lock()
@@ -227,7 +306,7 @@ func (l *Logger) GetLogs(count int) []LogEntry {
 	}
 
 	start := len(l.logs) - count
-	return l.logs[start:]
+	return append([]LogEntry(nil), l.logs[start:]...) // 返回副本
 }
 
 // ClearLogs 清空日志
@@ -276,4 +355,18 @@ func (l *Logger) GetLogFileSize() int64 {
 	}
 
 	return stat.Size()
+}
+
+// SetMinLevel 设置最小日志级别
+func (l *Logger) SetMinLevel(level LogLevel) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.minLevel = level
+}
+
+// GetMinLevel 获取当前最小日志级别
+func (l *Logger) GetMinLevel() LogLevel {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.minLevel
 }
