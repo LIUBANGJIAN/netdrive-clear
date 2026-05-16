@@ -175,7 +175,7 @@ func initWebDAV(cfg *config.Config) (*webdav.Manager, error) {
 func printBanner() {
 	fmt.Println(`
 ╔══════════════════════════════════════════════════════════════════╗
-║                    NetDrive Clear v2.0.12                       ║
+║                    NetDrive Clear v2.0.13                       ║
 ║              CloudDrive2 云盘自动清理工具                        ║
 ║                                                                ║
 ║  功能: 自动删除广告文件、小视频文件、增量扫描、实时监控            ║
