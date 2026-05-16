@@ -121,21 +121,25 @@ func (m *Monitor) Stop() {
 func (m *Monitor) run() {
 	defer m.wg.Done()
 
-	// 创建定时器
-	ticker := time.NewTicker(time.Duration(m.config.IntervalSeconds) * time.Second)
-	defer ticker.Stop()
-
 	// 立即执行一次扫描
 	m.scanAll()
 
 	// 定时扫描循环
 	for {
+		// 每次循环都重新读取间隔配置，支持运行时更新
+		m.mu.RLock()
+		interval := m.config.IntervalSeconds
+		m.mu.RUnlock()
+
+		// 创建新的定时器
+		ticker := time.NewTicker(time.Duration(interval) * time.Second)
+
 		select {
 		case <-m.ctx.Done():
-			// 上下文被取消，退出循环
+			ticker.Stop()
 			return
 		case <-ticker.C:
-			// 定时触发扫描
+			ticker.Stop()
 			m.scanAll()
 		}
 	}
@@ -170,32 +174,7 @@ func (m *Monitor) scanAll() {
 			m.onScanStart(wp.Path)
 		}
 
-		// 使用 WebDAV 获取指纹（增量扫描）
-		fingerprint, err := m.manager.GetFingerprint(m.ctx, wp.Path)
-		if err != nil {
-			if m.onError != nil {
-				m.onError(fmt.Errorf("获取目录指纹失败: %v", err))
-			}
-			continue
-		}
-
-		// 如果指纹没变化，跳过扫描
-		if !m.scanner.NeedsScan(wp.Path, fingerprint) {
-			if m.onScanComplete != nil {
-				m.onScanComplete(wp.Path, &cleaner.CleanResult{
-					ScannedFiles: 0,
-					ScannedDirs:  0,
-					DeletedCount: 0,
-					DeletedSize:  0,
-					Duration:     0,
-					Skipped:      true,
-					Message:      "目录无变化，跳过扫描",
-				})
-			}
-			continue
-		}
-
-		// 执行清理
+		// 执行清理（每次轮询都执行，不过滤）
 		result, err := m.cleaner.CleanPath(m.ctx, wp.Path)
 		if err != nil {
 			if m.onError != nil {
@@ -203,9 +182,6 @@ func (m *Monitor) scanAll() {
 			}
 			continue
 		}
-
-		// 更新指纹
-		m.scanner.UpdateFingerprint(wp.Path, fingerprint)
 
 		// 触发扫描完成回调
 		if m.onScanComplete != nil {
